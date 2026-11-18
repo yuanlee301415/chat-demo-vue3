@@ -4,12 +4,12 @@ import { computed, ref } from 'vue'
 
 import ProviderProbe from './ProviderProbe.vue'
 import { themeOverrides } from './theme'
+import { useThemeMode } from './useThemeMode'
 
-const isDark = ref(false)
+const { isDark, label: themeLabel, icon: themeIcon, cycle: cycleTheme } = useThemeMode()
 const collapsed = ref(false)
 
 const theme = computed(() => (isDark.value ? darkTheme : null))
-const themeLabel = computed(() => (isDark.value ? '切换到浅色' : '切换到深色'))
 </script>
 
 <template>
@@ -43,13 +43,13 @@ const themeLabel = computed(() => (isDark.value ? '切换到浅色' : '切换到
               <footer class="sider__footer" :class="{ 'sider__footer--collapsed': collapsed }">
                 <NTooltip placement="right">
                   <template #trigger>
-                    <NButton quaternary circle aria-label="切换主题" @click="isDark = !isDark">
+                    <NButton quaternary circle aria-label="切换主题" @click="cycleTheme">
                       <template #icon>
-                        <AppIcon :name="isDark ? 'light' : 'dark'" />
+                        <AppIcon :name="themeIcon" />
                       </template>
                     </NButton>
                   </template>
-                  {{ themeLabel }}
+                  主题：{{ themeLabel }}（点击切换）
                 </NTooltip>
                 <NTooltip placement="right">
                   <template #trigger>

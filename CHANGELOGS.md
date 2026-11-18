@@ -424,3 +424,46 @@
 - 深色下硬编码灰色文字对比度不足，Phase 4 用 CSS 变量收口。
 - 侧栏还没有「新对话」按钮与会话列表（Phase 3 接入 `SessionItem`/`Sider`）。
 - 入口体积 410 kB：Phase 5 再评估 NaiveUI 组件按需加载。
+
+---
+
+## P1-03a 主题跟随系统
+
+- 状态：已提交（`git log --grep P1-03a`）
+- 开始：2026-11-18 17:15
+
+**计划与目标**
+
+- 目标：修掉 P1-03 只做「手动浅/深二态」的问题——默认跟随浏览器/系统 `prefers-color-scheme`，系统切换时实时响应，同时保留用户手动覆盖（跟随系统 / 浅色 / 深色 三态循环），并把选择存进 `chat-demo-vue:theme`。
+- 范围：`src/app/useThemeMode.ts`（新增组合式函数）、`src/app/App.vue`（改用该函数）。
+- 不做：不建 settings store（Phase 2）、不做设置弹窗里的主题选项（Phase 4）、不做避免首屏闪烁的 CSS/内联脚本兜底。
+- 验收：
+  1. 系统偏好为深色时，首屏即渲染深色（无需手动切换）。
+  2. 系统偏好运行中变化时，页面实时跟随（监听 `matchMedia` 的 `change`）。
+  3. 主题按钮按「跟随系统 → 浅色 → 深色 → 跟随系统」循环，tooltip 显示当前模式。
+  4. 手动选择写入 `localStorage['chat-demo-vue:theme']`，刷新后保留；选中 `system` 时仍跟随系统。
+  5. 质量门（type/lint/format:check/test）全绿，控制台 0 报错。
+
+**关键决策始末**
+
+1. **三态而不是二态**：原按钮只能浅/深互切，无法表达「跟随系统」。改为 `system | light | dark` 循环，默认 `system`——不读系统偏好就等于没修这个问题。
+2. **用组合式函数封装**：`useThemeMode()` 持有 `matchMedia('(prefers-color-scheme: dark)')` 并在 `onScopeDispose` 里移除监听；`isDark`/`label`/`icon` 由 `mode` 与系统偏好共同派生。放在 `src/app/` 而非 store，是因为 Phase 2 的 settings store 会接管持久化，届时这里只留媒体查询逻辑或整体迁走。
+3. **持久化用计划约定的键**：`chat-demo-vue:theme`（§3.6），Phase 2 直接沿用，避免两套 key；读写都包 `try/catch`，隐私模式写不进去就只在本次会话生效。
+4. **不做首屏防闪**：Vue 挂载前 HTML 还是白底，系统深色时会有极短白闪；内联脚本/CSS 兜底属于计划外复杂度，记为遗留。
+5. **验证手段降级（记录备查）**：本机这次启动的 Chrome，CDP 会话里 `Emulation` 域不可用（`setDeviceMetricsOverride`、`setEmulatedMedia` 都返回 `Method not found`），而前几个步骤里同样的调用是通的。改用 `Page.addScriptToEvaluateOnNewDocument` 注入 `matchMedia` 替身，并提供 `window.__setMediaDark()` 手动触发 `change`，等价验证「系统偏好 + 实时响应」。
+
+**验证记录**
+
+- dev（8097）首屏：模拟系统浅色 → 侧栏 `rgb(255, 255, 255)`。
+- 运行中把系统偏好切深色 → 侧栏变 `rgb(24, 24, 28)`，`matchMedia` 的 `change` 监听生效。
+- 手动循环：`system → light`（`localStorage` = `light`，浅色）→ `light → dark`（`dark`，深色）→ `dark → system`（`system`，因系统深色仍为深色）。
+- 系统再切浅色 → 页面重新变浅，证明 `system` 模式持续跟随而非一次性快照。
+- 刷新（注入的默认偏好为浅色）：`localStorage` 仍为 `system`，渲染浅色。
+- 整轮控制台 `error/warn`、异常均为 0。
+- `pnpm type` / `lint` / `format:check` / `test` / `build` 全部 exit 0。
+
+**遗留**
+
+- 系统深色时首屏有极短白闪（未做内联兜底）。
+- 设置弹窗里的显式主题选项仍待 Phase 4；目前只有侧栏按钮循环。
+- 持久化逻辑将来迁进 settings store（Phase 2），`useThemeMode` 可能只保留媒体查询部分。
