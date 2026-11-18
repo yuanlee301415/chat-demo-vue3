@@ -1,16 +1,5 @@
 <script setup lang="ts">
-import {
-  NButton,
-  NCard,
-  NConfigProvider,
-  NDivider,
-  NEmpty,
-  NSpace,
-  NSwitch,
-  darkTheme,
-  dateZhCN,
-  zhCN,
-} from 'naive-ui'
+import { NButton, NCard, NConfigProvider, NDivider, NEmpty, NSpace, NSwitch, darkTheme, dateZhCN, zhCN } from 'naive-ui'
 import { computed, reactive, ref } from 'vue'
 
 import { themeOverrides } from './app/theme'

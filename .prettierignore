@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+
+# 从原项目脚本提取的图标，路径数据超长、格式化只会制造噪音
+src/assets/icons
+
+# 文档保持手写换行，交给 prettier 会重排表格与列表
+*.md

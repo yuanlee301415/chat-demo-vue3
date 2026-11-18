@@ -40,7 +40,8 @@
 | 图标 | 提取为 `src/assets/icons/*.svg`；全局 `AppIcon` 组件用 `import.meta.glob(..., { query: '?raw' })` 渲染 |
 | 文案 | **固定中文**：保留 `zh.ts` 与 `t()`，删除 `en.ts`、语言切换、`locale` 设置 |
 | 数据 | 新库 `chat-demo-vue` v1；localStorage 前缀 `chat-demo-vue:`；无迁移、无 staging |
-| 测试 | Vitest 核心模块单测；无组件测试/E2E/视觉回归 |
+| 测试 | Vitest 核心模块单测（node 环境）；无组件测试/E2E/视觉回归 |
+| 质量工具 | ESLint 10（`eslint-plugin-vue` + `@vue/eslint-config-typescript`）+ Prettier 3 + Vitest 5；脚本 `pnpm type` / `lint` / `format:check` / `test`（`P1-02` 落地） |
 
 ## 2. Vue 3 + TS 最佳实践落地
 

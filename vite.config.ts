@@ -87,6 +87,10 @@ export const createConfig = (options: AppConfigOptions = {}): UserConfig => {
     define: {
       __API_ORIGIN__: JSON.stringify(apiOrigin),
     },
+    resolve: {
+      // 与 tsconfig `paths` / vitest.config.ts 的 alias 保持一致。
+      alias: { '@': fileUrl('./src') },
+    },
     css: {
       transformer: 'lightningcss',
       lightningcss: { targets },
@@ -102,15 +106,7 @@ export const createConfig = (options: AppConfigOptions = {}): UserConfig => {
        * 触发 dev 页面 reload 打断刚发出的请求。预构建在后台跑，不阻塞首次打开。
        * Prism 是 CJS、语言包是副作用脚本，必须走预构建；Mermaid/KaTeX 一并登记只为行为稳定。
        */
-      include: [
-        'mermaid',
-        'katex',
-        'katex/contrib/mhchem',
-        'prismjs',
-        'prismjs/components/prism-bash.min.js',
-        'prismjs/components/prism-json.min.js',
-        'prismjs/components/prism-typescript.min.js',
-      ],
+      include: ['mermaid', 'katex', 'katex/contrib/mhchem', 'prismjs', 'prismjs/components/prism-bash.min.js', 'prismjs/components/prism-json.min.js', 'prismjs/components/prism-typescript.min.js'],
     },
     server: { host, port, strictPort: true },
     /**

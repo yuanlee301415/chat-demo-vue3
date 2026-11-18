@@ -331,3 +331,50 @@
 - `tsconfig` 的严格项（如 `exactOptionalPropertyTypes`）与 `jsconfig.json`/`paths` 合并仍留给 `P1-02`。
 - preview 不钉端口意味着 `pnpm preview` 可能落到不同端口；CI 需要固定端口时要显式传 `--port`。
 - 只复制了本项目 LICENSE，未生成第三方依赖的许可清单（Phase 5 若对外发布再补）。
+
+---
+
+## P1-02 tsconfig / vue-tsc / ESLint / Prettier / Vitest 配置
+
+- 状态：已提交（`git log --grep P1-02`）
+- 开始：2026-11-18 16:23
+
+**计划与目标**
+
+- 目标：把质量工具链装好并能跑——`tsconfig`（含 `@/*` 别名、删除 `jsconfig.json`）、ESLint（Vue + TS，禁 `any`）、Prettier（与现有代码风格一致）、Vitest（node 环境 + 一个真实冒烟用例），以及 `pnpm type|lint|format|test` 脚本。
+- 范围：`tsconfig.json`、`tsconfig.node.json`、`vite.config.ts`（alias）、`vitest.config.ts`（新增）、`eslint.config.js`（新增）、`.prettierrc.json` + `.prettierignore`（新增）、`src/app/theme.test.ts`（新增冒烟）、`package.json`（脚本与 devDependencies）、删除 `jsconfig.json`。
+- 不做：不写 Phase 2 的核心模块单测（`branches`/`reply`/`view`/`db`）；不接组件测试/E2E；不配 CI；暂不引 `eslint-plugin-import` 的循环依赖规则（Phase 5 视需要再加）。
+- 验收：
+  1. `pnpm type` 0 错误；`pnpm lint` 0 错误；`pnpm format:check` 通过；`pnpm test` 全部通过。
+  2. 故意写 `any`、非法 `v-html` 会被 lint 拦住（临时探针验证后删除）。
+  3. `jsconfig.json` 已删除，`@/*` 在 `tsconfig` 与 Vite `resolve.alias` 两处一致。
+  4. 全仓格式化后重新跑 type/lint/test 仍全绿。
+
+**关键决策始末**
+
+1. **工具版本**：`eslint 10.15`、`eslint-plugin-vue 10.12`、`@vue/eslint-config-typescript 14.9`、`@vue/eslint-config-prettier 10.2`、`prettier 3.10`、`vitest 5.1`。
+2. **ESLint 用官方 Vue+TS 组合，不自己拼 flat config**：`defineConfigWithVueTs` + `pluginVue.configs['flat/recommended']` + `vueTsConfigs.recommended` + `skipFormatting`，减少规则互相打架；只在这套之上追加项目规则。
+3. **`vue/no-v-html` 逐文件豁免，不全局关闭**：只对 `src/components/base/AppIcon.vue`（本地静态 SVG）与 `src/App.vue`（spike 输出）关闭，源码处注明原因；已用负例验证非豁免文件写 `v-html` 会被拦住。
+4. **Prettier 只覆盖代码**：`.prettierignore` 排除 `*.md`（手写换行与表格会被重排）、`src/assets/icons`（超长 path 数据）、`dist`/`node_modules`/`pnpm-lock.yaml`。首次 `--write` 只改动了 `App.vue` 与 `AppIcon.vue`，说明现有风格与配置基本一致。
+5. **Vitest 独立配置、不带 Vue 插件**：本阶段只跑 node 环境纯逻辑，`vitest.config.ts` 不引 `@vitejs/plugin-vue`，避免提前引入组件测试能力；`include: ['src/**/*.test.ts']`、`restoreMocks: true`。
+6. **`@/*` 三处保持一致**：`tsconfig.paths`、`vite.resolve.alias`、`vitest.resolve.alias`；用临时用例分别验证了 tsc、vitest、vite build 三条链路（探针已删）。
+7. **删除 `jsconfig.json`**：`@/*` 已进 tsconfig，两者并存只会让编辑器挑错配置文件；这是 P0-00 遗留的收尾。
+8. **`build` 只串 `type`，不串 lint/format**：本地构建不被格式问题阻塞，lint/format 留给 CI 与提交前检查（Phase 5 配 CI 时串起来）。
+
+**验证记录**
+
+- `pnpm type`：0 错误（`vitest.config.ts` 已纳入 `tsconfig.node.json`）。
+- `pnpm lint`：0 错误 0 警告（ESLint 10，启用 `--cache`）。
+- `pnpm format:check`：`All matched files use Prettier code style!`
+- `pnpm test`：`src/app/theme.test.ts` 2 个用例通过；加临时 alias 探针时 3 个用例通过。
+- 负例 1：`src/lint-probe-any.ts` 里 `const bad: any = 1` → `@typescript-eslint/no-explicit-any` 报错（exit 1）。
+- 负例 2：非豁免组件写 `v-html` → `vue/no-v-html` 报错（exit 1）；删除两个探针后 `pnpm lint` 恢复 0。
+- 别名：`@/app/theme` 在 vitest 用例、`tsc`、`vite build`（临时把 App.vue 的 import 换成 alias，构建成功后改回）三条链路均解析成功。
+- 格式化后四项检查（type/lint/format:check/test）全部重新跑过，均通过。
+
+**遗留**
+
+- 未引入 `eslint-plugin-import` 的循环依赖规则；Phase 5 若模块变复杂再加。
+- 没有 lint-staged/husky 之类的提交钩子（不在计划内）。
+- alias 在三处维护（tsconfig / vite / vitest），以后改路径需同步。
+- 未接覆盖率工具；Phase 2 写核心单测时再评估是否需要阈值。

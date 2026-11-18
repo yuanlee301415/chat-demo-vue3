@@ -35,11 +35,7 @@ type Katex = typeof import('katex').default
 let katexPromise: Promise<Katex> | null = null
 
 export const loadKatex = (): Promise<Katex> => {
-  katexPromise ??= Promise.all([
-    import('katex'),
-    import('katex/contrib/mhchem'),
-    import('katex/dist/katex.min.css'),
-  ]).then(([module]) => module.default)
+  katexPromise ??= Promise.all([import('katex'), import('katex/contrib/mhchem'), import('katex/dist/katex.min.css')]).then(([module]) => module.default)
   return katexPromise
 }
 

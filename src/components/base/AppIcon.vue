@@ -16,12 +16,7 @@ const svg = computed(() => ICON_SVGS[props.name])
 </script>
 
 <template>
-  <span
-    class="app-icon"
-    :style="{ width: `${size}px`, height: `${size}px` }"
-    aria-hidden="true"
-    v-html="svg"
-  />
+  <span class="app-icon" :style="{ width: `${size}px`, height: `${size}px` }" aria-hidden="true" v-html="svg" />
 </template>
 
 <style scoped>
