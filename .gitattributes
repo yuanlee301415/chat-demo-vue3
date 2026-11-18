@@ -1,0 +1,3 @@
+# 统一换行：仓库内与工作区一律 LF，覆盖本机 core.autocrlf 带来的 CRLF 转换
+# 与 .editorconfig 的 end_of_line = lf 保持一致
+* text=auto eol=lf
