@@ -84,7 +84,7 @@
 
 - `index.html` 放项目根目录，入口 `<script type="module" src="/src/main.ts">`；删除 `src/index.html`。
 - `vite.config.ts` 导出 `createConfig({ apiOrigin, server })`；默认 API `https://api.deepseek.com`，支持自定义代理。
-- `base: './'`；`build.assetsDir: 'static'`；`build.target` 为 `chrome105`/`edge105`/`safari16`/`firefox110`。
+- `base: './'`；`build.assetsDir: 'static'`；`build.target` 为 `chrome105`/`edge105`/`safari16`/`firefox110`（桌面端：Chrome/Edge 105+、Safari 16+、Firefox 110+，不支持移动端，见 §0）。`P0-05` 已验证：把 `dist` 整体挂在 `/chat-demo-vue3/` 子路径下，`./static/*`、动态 chunk 与 KaTeX 字体都能正确加载。
 - CSS 用 `css.transformer: 'lightningcss'` + `browserslistToTargets`，保留现有 CSS Modules。
 - `define: { __API_ORIGIN__: JSON.stringify(apiOrigin) }`；`transformIndexHtml` 注入 `application-version`；`closeBundle` 拷贝 `LICENSE`。
 - 不输出 `file://` 产物；README 删除“双击 index.html”说明。

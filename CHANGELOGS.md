@@ -245,3 +245,45 @@
 - Prism 正式实现要补语言依赖拓扑（如 `cpp` 依赖 `c`）与更多语言，`optimizeDeps.include` 可能需要追加条目。
 - katex 跟随 mermaid 停在 0.18.x；等 mermaid 支持 katex 0.19+ 再一起升。
 - 构建时 Vite 对 `elk` 等 >500 kB 的 chunk 有告警，属已知预期（按需加载），未调整 `chunkSizeWarningLimit`。
+
+---
+
+## P0-05 产物结构确认
+
+- 状态：已提交（`git log --grep P0-05`）
+- 开始：2026-11-18 15:58
+
+**计划与目标**
+
+- 目标：确认生产构建产物在「子路径部署」（GitHub Pages 形态 `/<repo>/`）下能正常加载：`base: './'` 的相对引用、`assetsDir: 'static'`、动态 chunk 与字体/CSS 的路径解析；并把浏览器 target 记录进计划 §3.1。
+- 范围：不改业务源码；用临时静态服务器把 `dist` 挂在 `/chat-demo-vue3/` 前缀下，用无头 Chrome 走一遍首屏 + 三个动态库；结论写回计划 §3.1/§6 与本文。
+- 不做：不写真实 CI/Pages 工作流（Phase 5）；不改 `base`；不处理 `file://`（已明确不支持）；不引 CDN。
+- 验收：
+  1. `dist/index.html` 的资源引用全部是相对路径（`./static/...`），不含 `/static` 绝对路径。
+  2. 以 `/chat-demo-vue3/` 前缀访问：首屏资源全部 200，页面渲染出图标网格与卡片。
+  3. 同一前缀下点 Mermaid / KaTeX / Prism，动态 chunk、字体、CSS 均 200，三种输出正确。
+  4. 全程无 4xx/5xx、无加载失败、控制台 0 报错；浏览器 target 写进计划。
+
+**关键决策始末**
+
+1. **用「子路径静态托管」验证，而不是 `vite preview`**：`base: './'` 的风险是相对路径在更深一层目录下解析错位；`vite preview` 默认挂在根路径，测不出这个问题。用临时 Node 静态服务器把 `dist` 挂到 `/chat-demo-vue3/`，等价于 GitHub Pages 的 `/repo/` 形态。
+2. **验证过程踩到两个坑（已修，记录以便复用）**：
+   - 静态服务器里 `path.join(ROOT, rel)` 在 Windows 上产出反斜杠路径，与正斜杠的 `ROOT` 做 `startsWith` 判断直接 403；改用 `path.resolve` + 分隔符归一化比较。
+   - 页面 403 后浏览器拿不到 HTML 里的 `<link rel="icon" href="data:,">`，回退请求 `/favicon.ico` 又产生 404；两个错误同源，修掉第一个后一起消失。
+3. **产物形态符合预期的根因**：`dist/index.html` 全部用 `./static/...`；KaTeX 的 CSS 里引用 `./KaTeX_*.woff2`（相对 CSS 所在目录）。因此 `dist` 整体搬到任意子路径都自洽，不需要为每个部署环境改 `base`。
+4. **浏览器 target 维持桌面四件套**：`chrome105`/`edge105`/`safari16`/`firefox110`，并在计划 §3.1 补充「不支持移动端」的说明；不加 polyfill、不降级到 ES5。
+
+**验证记录**
+
+- `pnpm build`：0 错误；入口 `static/index-*.js` 329.29 kB、`static/index-*.css` 1.16 kB。
+- `dist/index.html`：`<script src="./static/index-*.js">`、`<link href="./static/index-*.css">`，无绝对路径；`dist/**/*.js` 中检索不到 `"/static/`。
+- `dist/static/katex-*.css`：字体引用为 `./KaTeX_*.woff2`。
+- 子路径实测（`http://127.0.0.1:8093/chat-demo-vue3/` 静态托管 `dist`）：`index.html` 200，`title=DeepSeek Chat Demo`，30 个图标格、`NCard` 存在，`script/link` 解析到 `./static/...`。
+- 同一子路径点击三个动态库：Mermaid SVG 出现、KaTeX 渲染出 `→` 且无 `.katex-error`、Prism 37 个 `.token`；共 36 个请求全部 200（含 `/chat-demo-vue3/static/chunk-*.js`），无 4xx/5xx、无 `loadingFailed`、控制台 0 报错。
+- 首屏只请求 `/chat-demo-vue3/`、`static/index-*.js`、`static/index-*.css` 三个资源，动态库仍按需。
+
+**遗留**
+
+- 未在真实 Chrome 105 / Safari 16 / Firefox 110 上运行；本次用最新 Chrome 验证行为，低版本语法降级交给 Vite/Rolldown，未逐特性核对。
+- 真实 Pages 工作流与「`base` 和仓库名联动」留 Phase 5；当前靠 `base: './'` 规避仓库名耦合。
+- 静态服务器脚本是一次性验证工具，只留在临时目录，不入库。
