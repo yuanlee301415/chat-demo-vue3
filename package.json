@@ -14,10 +14,14 @@
     "type": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "katex": "^0.18.11",
+    "mermaid": "^12.3.0",
     "naive-ui": "^2.45.3",
+    "prismjs": "^1.30.0",
     "vue": "^3.5.45"
   },
   "devDependencies": {
+    "@types/prismjs": "^1.26.6",
     "@vitejs/plugin-vue": "^6.0.11",
     "typescript": "~6.0.3",
     "vite": "^8.3.8",

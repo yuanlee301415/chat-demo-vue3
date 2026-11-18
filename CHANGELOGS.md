@@ -199,3 +199,49 @@
 - `warning` 图标去掉了源实现的裁剪，属判定「裁剪等于整视口、无视觉差异」后的简化，未做像素级比对。
 - favicon 目前是 `data:,` 占位，Phase 5 换正式图标。
 - ESLint 未接入，`v-html` 的定点豁免与 `vue/no-v-html` 规则留到 `P1-02`。
+
+---
+
+## P0-04 Mermaid / Prism / KaTeX 动态导入 spike
+
+- 状态：已提交（`git log --grep P0-04`）
+- 开始：2026-11-18 15:40
+
+**计划与目标**
+
+- 目标：在 Vite 8 下验证三件只在用到时才加载的重型依赖——`mermaid`、`katex`（+ `mhchem` + CSS）、`prismjs`（核心 + 语言包）——能否真正按需加载、构建后是否独立分包、dev 期预构建该 include 哪些，并把结论写进 `vite.config.ts`。
+- 范围：`package.json`（新增 `mermaid`/`katex`/`prismjs`/`@types/*`）、`src/spikes/markdown-libs.ts`（临时 spike 模块）、`src/App.vue`（三个触发按钮 + 输出区）、`vite.config.ts`（`optimizeDeps`）。
+- 不做：不做 Markdown 解析/AST 渲染/代码块组件（Phase 4）；不做 Prism 全语言表与依赖拓扑（`after([c], cpp)` 那套留到 Phase 4）；不接 `mermaid` 的深浅色与安全配置定稿；不做样式美化。
+- 验收：
+  1. 首屏加载时不请求 mermaid/katex/prism 语言包；点击对应按钮后才发起请求。
+  2. 三种库都能渲染：Mermaid 出 SVG、KaTeX 出公式（含 `\ce{}` 化学式）、Prism 出高亮 HTML。
+  3. `pnpm build` 后入口 chunk 不含这三个库，产物里有独立 chunk；记录各 chunk 体积。
+  4. `pnpm type` 0 错误，控制台 0 报错；`optimizeDeps` 决策有实测依据（dev 冷启动耗时、按需请求数）。
+
+**关键决策始末**
+
+1. **版本**：`mermaid 12.3.0`、`katex 0.18.11`、`prismjs 1.30.0`，开发依赖 `@types/prismjs 1.26.6`；**不装 `@types/katex`**（katex 0.18 自带类型，装了反而版本对不上）。
+2. **KaTeX 降到 `^0.18.11`（有实测依据）**：mermaid 12.3.0 依赖 `katex ^0.18.0`，装 0.19.1 时 pnpm 会同时装 0.19.1 与 0.18.11，构建出**两个** ~259 kB 的 katex chunk。把直接依赖对齐到 `^0.18.11` 后 `pnpm why katex` 只剩一个版本，构建也只剩一个 katex chunk。代价是放弃 0.19 的新特性——本 Demo 不需要。
+3. **Prism 核心也改成动态 `import()`**：最初沿用原项目的静态 `import Prism from 'prismjs'`，结果 prism 核心（约 19 kB）被打进入口，入口从 320.30 → 347.99 kB。改为 `import('prismjs')` 并兼容 CJS 默认导出（`module.default ?? module`）后，入口回到 329.29 kB，prism 变成独立 chunk。
+4. **语言包依赖全局 Prism（已验证可行）**：`prism-*.min.js` 是副作用脚本，`prism.js` 里有 `_self.Prism = _`，所以只要核心先执行，动态加载的语言包就能挂上；`highlightCode` 里先 `await loadPrism()` 再 `await load()` 保证顺序。
+5. **`optimizeDeps.include` 显式登记三库 + 3 个语言包**：实测默认配置同样会被扫描并预构建（行为一致），显式登记的价值是把预构建**固定在启动后一次完成**，避免首次点击时才优化新依赖触发页面 reload（会打断正在进行的会话）。预构建在后台跑：默认 `ready 355 ms`、显式 `463 ms`，都不阻塞打开。
+6. **不采用 `exclude: ['mermaid']`**：exclude 会让 mermaid 变成大量原生 ESM 请求；预构建后首次渲染只有 30 个请求（dev）/ 26 个（生产）。
+7. **spike 放 `src/spikes/`，Phase 4 删除**：不提前写 `services/markdown/*`——那需要安全配置、语言依赖拓扑、渲染队列，提前落笔会把 Phase 4 的设计定死。`spike-shims.d.ts` 的 `declare module 'prismjs/components/*'` 也随正式实现搬走。
+8. **CSS 与字体按需**：`import('katex/dist/katex.min.css')` 在没 import katex 时不会请求；生产首屏 3 个请求里没有 katex 的 CSS，只有渲染公式时才注入 `katex-*.css` 与 2 个字体。
+
+**验证记录**
+
+- `pnpm type`、`pnpm build`：0 错误。
+- 构建体积：入口 `index-*.js` 329.29 kB（gzip 106.58）；`mermaid.core` 84.81 kB + 各图类型 chunk（最大 `elk` 1.46 MB，只在实际用到对应图时加载）；`katex` 259.17 kB + `mhchem` 33.22 kB + `katex.css` 29.44 kB；`prism` 18.84 kB + 语言包 1.29 / 0.44 / 6.14 kB。
+- katex 去重前：两个 chunk 259.38 kB + 258.91 kB；去重后：一个 259.17 kB。
+- dev（清空 `.vite` 冷启动，`optimizeDeps` 生效）：`ready in 463 ms`，预构建在后台完成；首屏 47 个请求中 **0** 个 mermaid/katex/prism 请求；点 Mermaid → 30 个 deps chunk 请求后渲染出 SVG（`viewBox="4 4 625 187"`）；点 KaTeX → 5 个请求（katex、mhchem、css、2 个字体），无 `.katex-error`，渲染出 `2H₂ + O₂ → 2H₂O`；点 Prism → 2 个请求，37 个 `.token`。
+- preview（生产产物）：首屏仅 **3** 个请求；点 Mermaid → 26 个 `static/*` chunk；KaTeX → 5 个（含 mhchem 与 2 个字体）；Prism → 2 个；三种输出全部正确。
+- 两轮验证（dev + preview）控制台 `error/warn`、异常均为 0。
+
+**遗留**
+
+- mermaid 的图类型共用预构建产物；若要进一步收敛首屏无关体积，可在 Phase 5 评估 `build.rolldownOptions.output.codeSplitting`（`elk` 1.46 MB 只在泳道/架构图时加载）。
+- `src/spikes/*` 与 App.vue 的演示区是临时的，Phase 4 落地 `services/markdown/*` 时删除。
+- Prism 正式实现要补语言依赖拓扑（如 `cpp` 依赖 `c`）与更多语言，`optimizeDeps.include` 可能需要追加条目。
+- katex 跟随 mermaid 停在 0.18.x；等 mermaid 支持 katex 0.19+ 再一起升。
+- 构建时 Vite 对 `elk` 等 >500 kB 的 chunk 有告警，属已知预期（按需加载），未调整 `chunkSizeWarningLimit`。
