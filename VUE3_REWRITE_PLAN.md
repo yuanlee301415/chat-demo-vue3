@@ -30,7 +30,7 @@
 
 | 决策点 | 结论 |
 |---|---|
-| 构建 | Vite 最新稳定版 + `@vitejs/plugin-vue`，dev/preview 端口 8090 |
+| 构建 | Vite 最新稳定版 + `@vitejs/plugin-vue`，dev/preview 端口 8091（计划原定 8090，被原项目 rspack dev server 在通配地址占用） |
 | 框架 | Vue 3 当前稳定线（3.5.x），`<script setup lang="ts">`，不用 Vapor/RC |
 | 类型 | TypeScript 6.x + `vue-tsc --noEmit`；TS 7 与 `vue-tsc` 兼容性在 Phase 0 验证 |
 | UI 库 | **直接使用 NaiveUI 组件**（`NButton`/`NInput`/`NSelect`/`NModal`/`NTooltip`/`NDropdown`/`NPopover`/`NLayout`/`NTabs`/`NForm`/`useMessage`/`useDialog`），不做仿 React API 的包装器 |
