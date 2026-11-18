@@ -8,12 +8,6 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 const STORAGE_KEY = 'chat-demo-vue:theme'
 const ORDER: readonly ThemeMode[] = ['system', 'light', 'dark']
 
-const LABELS: Record<ThemeMode, string> = {
-  system: '跟随系统',
-  light: '浅色',
-  dark: '深色',
-}
-
 const ICONS: Record<ThemeMode, IconName> = {
   system: 'follow-system',
   light: 'light',
@@ -44,7 +38,6 @@ export const useThemeMode = () => {
   onScopeDispose(() => query.removeEventListener('change', handleSystemChange))
 
   const isDark = computed(() => (mode.value === 'system' ? systemPrefersDark.value : mode.value === 'dark'))
-  const label = computed(() => LABELS[mode.value])
   const icon = computed<IconName>(() => ICONS[mode.value])
 
   const setMode = (next: ThemeMode) => {
@@ -61,5 +54,5 @@ export const useThemeMode = () => {
     setMode(ORDER[(index + 1) % ORDER.length])
   }
 
-  return { mode, isDark, label, icon, setMode, cycle }
+  return { mode, isDark, icon, setMode, cycle }
 }

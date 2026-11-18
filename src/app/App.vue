@@ -2,14 +2,25 @@
 import { NButton, NConfigProvider, NDialogProvider, NEmpty, NLayout, NLayoutContent, NLayoutSider, NMessageProvider, NTooltip, darkTheme, dateZhCN, zhCN } from 'naive-ui'
 import { computed, ref } from 'vue'
 
+import { useI18n, type TranslationKey } from '../i18n'
 import ProviderProbe from './ProviderProbe.vue'
 import { themeOverrides } from './theme'
 import { useThemeMode } from './useThemeMode'
 
-const { isDark, label: themeLabel, icon: themeIcon, cycle: cycleTheme } = useThemeMode()
+const { t } = useI18n()
+const { isDark, mode: themeMode, icon: themeIcon, cycle: cycleTheme } = useThemeMode()
 const collapsed = ref(false)
 
 const theme = computed(() => (isDark.value ? darkTheme : null))
+
+const THEME_LABEL_KEYS: Record<typeof themeMode.value, TranslationKey> = {
+  system: 'avatarMenuSettingsDialogThemeSelectSystemOption',
+  light: 'avatarMenuSettingsDialogThemeSelectLightOption',
+  dark: 'avatarMenuSettingsDialogThemeSelectDarkOption',
+}
+
+const themeLabel = computed(() => t(THEME_LABEL_KEYS[themeMode.value]))
+const collapseLabel = computed(() => t(collapsed.value ? 'expandSiderbarButton' : 'collapseSiderbarButton'))
 </script>
 
 <template>
@@ -32,7 +43,7 @@ const theme = computed(() => (isDark.value ? darkTheme : null))
                       </template>
                     </NButton>
                   </template>
-                  {{ collapsed ? '展开侧栏' : '收起侧栏' }}
+                  {{ collapseLabel }}
                 </NTooltip>
               </header>
 
@@ -49,7 +60,7 @@ const theme = computed(() => (isDark.value ? darkTheme : null))
                       </template>
                     </NButton>
                   </template>
-                  主题：{{ themeLabel }}（点击切换）
+                  {{ t('avatarMenuSettingsDialogThemeItemLabel') }}：{{ themeLabel }}（点击切换）
                 </NTooltip>
                 <NTooltip placement="right">
                   <template #trigger>
@@ -59,7 +70,7 @@ const theme = computed(() => (isDark.value ? darkTheme : null))
                       </template>
                     </NButton>
                   </template>
-                  设置（Phase 4 接入）
+                  {{ t('settings') }}
                 </NTooltip>
               </footer>
             </div>
@@ -67,7 +78,7 @@ const theme = computed(() => (isDark.value ? darkTheme : null))
 
           <NLayoutContent class="content">
             <div class="welcome">
-              <h1 class="welcome__title">欢迎页占位</h1>
+              <h1 class="welcome__title">{{ t('welcomeMessageChat250808') }}</h1>
               <p class="welcome__text">会话视图、输入框与消息流将在 Phase 3 接入。</p>
               <ProviderProbe />
             </div>

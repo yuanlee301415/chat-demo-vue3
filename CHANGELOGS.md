@@ -467,3 +467,45 @@
 - 系统深色时首屏有极短白闪（未做内联兜底）。
 - 设置弹窗里的显式主题选项仍待 Phase 4；目前只有侧栏按钮循环。
 - 持久化逻辑将来迁进 settings store（Phase 2），`useThemeMode` 可能只保留媒体查询部分。
+
+---
+
+## P1-04 固定中文 i18n 精简
+
+- 状态：已提交（`git log --grep P1-04`）
+- 开始：2026-11-18 17:17
+
+**计划与目标**
+
+- 目标：把原项目的**中文文案层**搬过来并固定为唯一语言——`src/i18n/zh.ts` 收录文案，`src/i18n/index.ts` 只保留 `t()` 与类型，去掉 `en.ts`/`locale`/`useTranslate` 这套多语言机制；外壳里已是产品文案的地方改用 `t()`。
+- 范围：`src/i18n/zh.ts`（新增，从原项目复制）、`src/i18n/index.ts`（新增，简化版）、`src/i18n/index.test.ts`（新增）、`src/app/App.vue`（接入 `t()`）、`src/app/useThemeMode.ts`（移出 UI 文案，只留模式与图标）。
+- 不做：不删仅语音/导入导出用到的 key（计划 §3.4 允许最小改动，留 Phase 5 统一清理）；不搬 `useTranslate`/`translate`/`en.ts`/`settings.locale`；不改 `latestReminder`/`location` 等尚未移植的模块；不做语言切换 UI。
+- 验收：
+  1. `zh.ts` 键值与原文一致；`index.ts` 只导出 `t`/`useI18n`/类型，无 locale 分支。
+  2. `t()` 支持 `{count}` 占位替换；缺参时保留占位符而不是输出 `undefined`。
+  3. 外壳中的侧栏/主题/设置/欢迎语来自 `t()`，浏览器渲染为中文。
+  4. `pnpm type|lint|format:check|test` 全绿，控制台 0 报错。
+
+**关键决策始末**
+
+1. **整份 `zh.ts` 原样搬入、不提前裁剪**：170 条 key 里语音/导入导出/语言切换相关的已经用不到，但计划 §3.4 允许最小改动、Phase 5 统一清理；先搬完整，避免 Phase 2/3 逐个补 key 时漏改或拼错。
+2. **只保留 `t` + `useI18n` + 类型**：删掉 `translators`/`useTranslate`/`translate`/`en.ts`/`settings.locale` 这条多语言链；`useI18n()` 目前只是包一层返回 `t`，保留它是给后续组件一个稳定入口（将来加作用域或按模块拆包只改这里）。
+3. **缺参保留占位符**：`{count}` 未传时输出 `{count}` 而不是 `undefined`，有用例覆盖；这样漏传参数会在界面上暴露成显式占位，不会被吞掉。
+4. **UI 文案从 composable 移到 i18n**：`useThemeMode` 不再返回中文 `label`（文案归 i18n 层），只返回 `mode`/`icon`/`isDark`/`setMode`/`cycle`；App.vue 用 `THEME_LABEL_KEYS` 把 mode 映射到文案 key。
+5. **外壳里只把「产品文案」换成 `t()`**：侧栏展开/收起、主题、设置、欢迎语（`welcomeMessageChat250808`）；「Phase 3 接入」「测试提示」这类临时占位保持字面量，避免把一次性文案写进词典。
+6. **不再碰 `lang` 与 NaiveUI locale**：`index.html` 的 `zh-CN` 与 `NConfigProvider` 的 `zhCN` 在 P1-01/P1-02 已固定，本步只补文案层。
+
+**验证记录**
+
+- `pnpm test`：8 个用例通过（i18n 6 + theme 2），覆盖占位符替换（`3 个网页`、`上传失败，点击重试`）、缺参保留 `{count} 个网页`、`isTranslationKey` 正反例、`useI18n().t === t`、全部文案非空。
+- `pnpm type` / `lint` / `format:check` / `build` 全部 exit 0。
+- 浏览器（dev 8097）：`<html lang="zh-CN">`；欢迎语渲染为「今天有什么可以帮到你？」；页面文本不含 `undefined`、不含未替换的 `{xxx}`。
+- Tooltip 实测：主题按钮「主题：跟随系统（点击切换）」、设置按钮「设置」、侧栏按钮「收起边栏」，均来自 `t()`。
+- 控制台 `error/warn`、异常均为 0。
+
+**遗留**
+
+- `zh.ts` 中语音（`voiceInput*`/`tts*`）、导入导出（`backup*`/`history*`）、语言切换（`settingsLocale*`/`settingsTtsVoice*`）的 key 仍在，Phase 5 统一删。
+- `en.ts`、`useTranslate`、`translate`、`settings.locale`、`isChineseBrowser`、`document.lang` 监听从未移植，无需删除。
+- `latestReminder`/`sessionGroups`/`describeReply`/`attachments`/`drafts` 里的 `t()` 调用要等对应模块在 Phase 2/3 移植时才接上。
+- `t()` 没有运行时缺键保护（类型系统已拦住），`isTranslationKey` 留给外部输入做守卫。
