@@ -35,5 +35,5 @@ export default defineConfig({
     ],
   },
   server: { host: HOST, port: PORT, strictPort: true },
-  preview: { host: HOST, port: PORT, strictPort: true },
+  preview: { host: HOST },
 })
