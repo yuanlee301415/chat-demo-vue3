@@ -149,3 +149,53 @@
 - `themeOverrides` 仅覆盖主色与圆角，Card/Layout/Input 等组件级 token 与 `theme.css` 一起在 Phase 4 定。
 - `.page` 的底色是临时硬编码，`P1-03` 换成 `theme.css` 的 CSS 变量。
 - `src/App.vue` 仍是演示页，`P1-03` 会替换为应用外壳，届时接入 `NMessageProvider`/`NDialogProvider`。
+
+---
+
+## P0-03 SVG 图标与全局 AppIcon
+
+- 状态：已提交（`git log --grep P0-03`）
+- 开始：2026-11-18 15:31
+
+**计划与目标**
+
+- 目标：把原项目 `icons.tsx` 中**仍在用**的图标拆成独立 `.svg`，并提供全局 `AppIcon` 组件与 `IconName` 字面量类型，取代 `icons.tsx` 的 React 组件。
+- 范围：`src/assets/icons/*.svg`、`src/components/base/iconNames.ts`、`src/components/base/AppIcon.vue`、`src/components.d.ts`、`src/main.ts`、`src/App.vue`（图标演示网格）。
+- 不做：不提取语音（mic/play）、移动端（menu、mobile new-chat 20）、导入导出（upload/download）、语言切换（globe）、自定义 Toast（toast-error）专用图标；不引 `unplugin-icons`/`@iconify`；不做图标分包；不建尺寸 token（由 `size` prop 控制）。
+- 验收：
+  1. `src/assets/icons/` 的文件数 = `ICON_NAMES` 长度；每个文件都以 `<svg` 开头、`</svg>` 结尾，含 `viewBox`，**无** `width`/`height` 属性，至少一处 `fill="currentColor"`。
+  2. `pnpm type`、`pnpm build` 均 0 错误；`IconName` 传错名字时 `vue-tsc` 报错（用一次性错误用例验证后删除）。
+  3. 浏览器演示页渲染全部图标，`size` 生效、颜色随 `currentColor`（浅色/深色各看一次）。
+  4. 全局注册可用：模板里直接写 `<AppIcon name="…" />` 无需 import（演示页即由全局注册渲染）。
+
+**关键决策始末**
+
+1. **用一次性脚本迁移，不手抄路径**：写了个 Node 脚本按 `export const` + `<svg…</svg>` 切块解析 `icons.tsx`，把 JSX 属性 camelCase 转 kebab（`fillRule` → `fill-rule`）、去掉根 `width`/`height`、保留 `viewBox` 与 `currentColor`。41 个源图标选中 30 个，脚本零失败。
+   - 备选：逐个手工复制——每个图标上千字符路径，易错且慢。
+   - 脚本本身不进仓库（一次性迁移工具），入库的是提取结果。
+2. **按语义命名，不再把尺寸写进名字**：`IconCloseFill14` → `close-fill`、`NewChatIcon` → `new-chat`、`IconRightUpOutline14` → `arrow-up-right`；尺寸交给 `size` prop。
+3. **同源多尺寸只留一份**：`IconThinkOutline14/16`、`IconLinkOutline14/16` 是同一图形的两种尺寸，只保留 16 版，14px 场景靠缩放。例外是 `close`（描边叉）与 `close-fill`（实心叉）——不同图形，都保留。
+4. **`NewChatIcon` 保留、`IconNewChatOutline20` 丢弃**：前者用于 `Sider`/`CollapsedSider`（保留），后者只出现在 `MobileHeader`（移动端已删）。
+5. **共丢弃 11 个**：mic×2、play-media（语音）、menu、new-chat-20（移动端）、upload/download（导入导出）、globe（语言切换）、toast-error（自定义 Toast 已被 `useMessage` 取代）、link-14 与 think-14（尺寸变体）。
+6. **`warning.svg` 去掉了原实现的 `clipPath`/`defs`**：源图标用 `<g clip-path="url(#clip0_…)">` 包住三条路径，裁剪矩形正好等于整个 14×14 视口、没有视觉效果；而内联 SVG 在同一页出现多次会产生重复 `id`。只保留三条 `path`。（提取脚本也暴露了 JSX 数字属性 `width={14}`，一并处理。）
+7. **`IconName` 由 `as const` 数组推导 + 运行时校验**：`ICON_NAMES` 是唯一清单；`import.meta.glob` 的 key 按名字拼出，文件缺失直接抛错；`DEV` 下额外 warn 未登记的孤儿 SVG。
+8. **`v-html` 只渲染本地静态 SVG**：数据来自 `src/assets/icons/*.svg`，不拼接任何用户输入；`P1-02` 接 ESLint 时对该文件定点禁用 `vue/no-v-html`。
+9. **修掉 favicon 404（偏差）**：无头验证时报 `Failed to load resource: 404`，定位为浏览器默认请求 `/favicon.ico`。`index.html` 加 `<link rel="icon" href="data:," />` 占位，真实图标留 Phase 5。
+10. **接受内联体积**：入口 JS 276.07 → 320.30 kB（gzip 85.47 → 102.91 kB），30 个 SVG 以字符串进包；Demo 无首屏预算，先接受。
+
+**验证记录**
+
+- 提取：源 41 个图标 → 写出 30 个，0 失败。
+- SVG 校验：30 个文件全部可被 XML 解析，根节点为 `svg`、含 `viewBox`、无根 `width`/`height`、含 `currentColor`（首轮 `warning.svg` 因 JSX 数字属性解析失败，修正后全绿）。
+- `pnpm type`：0 错误。负例 `const bad: IconName = 'not-an-icon'` 报 `TS2322`，确认是 30 个字面量的联合类型（探针文件验证后已删除）。
+- `pnpm build`：0 错误；2696 modules，`static/index-*.js` 320.30 kB（gzip 102.91 kB）、`static/index-*.css` 0.88 kB。
+- 无头 Chrome（CDP）实测：30 个 `.icon-cell`、34 个 `.app-icon`（30 图标 + 4 个尺寸样例）、30 个唯一名字；无缺 SVG、无空 SVG；首图标 `viewBox="0 0 8 14"`、`fill="currentColor"`，计算值 `fill: rgb(51, 54, 57)` 与单元格文字色一致；尺寸行实测宽度 `14 / 16 / 20 / 24`。
+- 切换深色后：图标计算 `fill: rgba(255, 255, 255, 0.82)`、卡片 `rgb(24, 24, 28)`、开关 `n-switch--active`，`currentColor` 生效。
+- 控制台：修掉 favicon 404 后，`console.error/warn`、`Runtime.exceptionThrown`、`Log error/warn` 均为 0。
+
+**遗留**
+
+- SVG 以字符串内联进 JS（约 +44 kB 原始、+17 kB gzip）；Phase 5 若在意首屏再评估 sprite/异步。
+- `warning` 图标去掉了源实现的裁剪，属判定「裁剪等于整视口、无视觉差异」后的简化，未做像素级比对。
+- favicon 目前是 `data:,` 占位，Phase 5 换正式图标。
+- ESLint 未接入，`v-html` 的定点豁免与 `vue/no-v-html` 规则留到 `P1-02`。
