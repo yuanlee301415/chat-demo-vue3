@@ -10,7 +10,7 @@
 - 状态：已提交（`git log --grep P0-00`）
 - 开始：2026-11-18 14:56
 
-**计划与目标（开始前填写）**
+**计划与目标**
 
 - 目标：建立新仓库的首个可用基线——工具链约定文件、项目说明、Vue 3 重构计划与 `CHANGELOGS.md` 记录规范，并形成首次提交。
 - 范围：`.editorconfig`、`.gitignore`、`README.md`、`jsconfig.json`、`VUE3_REWRITE_PLAN.md`、`CHANGELOGS.md`。
@@ -23,7 +23,7 @@
 
 > 开始后发现仓库已存在一条 `chore: 初始化` 提交（14:30，含上述 6 个文件，`CHANGELOGS.md` 为空），目标因此收窄为「按 §5 补齐规范基线并提交」，范围不变；取舍见决策 1。
 
-**关键决策始末（结束前填写）**
+**关键决策始末**
 
 1. **不重写已有历史**：`6ce4b63 chore: 初始化` 早于本条目，是基线文件的实际入库点。选择在其后追加第一条规范提交（只含文档侧改动），而不是 `git commit --amend` 成单条 `P0-00 ...`。
    - 备选：amend 合并为一条，历史更整齐。
@@ -56,7 +56,7 @@
 - 状态：已提交（`git log --grep P0-01`）
 - 开始：2026-11-18 15:00
 
-**计划与目标（开始前填写）**
+**计划与目标**
 
 - 目标：得到可运行的 Vite + Vue 3 + TS 最小工程（无 NaiveUI、无业务代码），`dev`/`build`/`preview`/`type` 四条命令全部跑通，作为 Phase 0 后续验证（NaiveUI、图标、动态导入）的底座。
 - 范围：`package.json`、`pnpm-lock.yaml`、`index.html`、`vite.config.ts`、`tsconfig.json`、`src/main.ts`、`src/App.vue`、`src/env.d.ts`。
@@ -70,7 +70,7 @@
 
 > 端口核对：8090 被原 `chat-demo` 的 rspack dev server 占用，实际改用 8091（见决策 5），验收按 8091 执行；其余验收项不变。
 
-**关键决策始末（结束前填写）**
+**关键决策始末**
 
 1. **版本选型**：实际装到 `vue 3.5.45`、`vite 8.3.8`、`@vitejs/plugin-vue 6.0.11`、`typescript 6.0.3`、`vue-tsc 3.3.14`。
    - TypeScript 停在 6.x：registry 最新是 `7.0.2`，`vue-tsc` 的 peer 只写 `>=5.0.0`，名义上允许；但计划风险表已记录「TS 7 与 vue-tsc 兼容性未验证」，本步不开 spike，按计划固定 6.x。
@@ -102,3 +102,50 @@
 - `src/App.vue` 的原生 `<button>` 是 spike 占位，`P0-02`/`P1-03` 接 NaiveUI 时删除。
 - `jsconfig.json` 与 `tsconfig.json` 的 `paths` 重复 → `P1-02` 合并。
 - 旧项目 rspack dev server（PID 9192）仍占用 8090，本步未处理。
+
+---
+
+## P0-02 接入 NaiveUI
+
+- 状态：已提交（`git log --grep P0-02`）
+- 开始：2026-11-18 15:25
+
+**计划与目标**
+
+- 目标：接入 NaiveUI 并验证三件事——`NConfigProvider` 的固定中文 locale、明暗主题切换、`themeOverrides` 能覆盖主色与圆角；为 Phase 3/4 的控件替换留下已验证的配置底座。
+- 范围：`package.json`（新增 `naive-ui`）、`src/app/theme.ts`（新建，`themeOverrides` 草案）、`src/App.vue`（改成 NaiveUI 演示页）。
+- 不做：不接 `NMessageProvider`/`NDialogProvider`（`P1-03`）；不搭 `NLayout`/侧栏外壳（`P1-03`）；不提取图标（`P0-03`）；不做暗色静态色板与 `theme.css`（Phase 4）；不引 `vfonts`/自定义字体；不做像素级视觉定稿。
+- 验收：
+  1. `pnpm type`、`pnpm build` 均 0 错误，产物仍走 `./static/`。
+  2. 浅色下主按钮背景等于 `themeOverrides` 的主色（`#4d6bfe` → `rgb(77, 107, 254)`），圆角 8px。
+  3. `NEmpty` 默认文案渲染为中文「暂无数据」（证明 `zhCN` 生效）。
+  4. 切换 `NSwitch` 后 `NCard` 背景变为 NaiveUI 深色值，再切回浅色；控制台无报错。
+
+**关键决策始末**
+
+1. **`naive-ui 2.45.3`，只用命名导入，不 `app.use(naive)`**：NaiveUI v2 自带 cssr/样式注入，按组件 import 即可；全量 `app.use` 会把整包塞进入口。
+   - 代价：每个文件都要显式列 import（后续若要自动导入，可加 `unplugin-vue-components`，本步不引）。
+   - 实测入口 JS 从 63.63 kB → 276.07 kB（gzip 25.23 → 85.47 kB）。Demo 单页、无首屏预算，接受；Phase 5 若有需要再做分包。
+2. **主题覆盖放 `src/app/theme.ts`**：导出 `PRIMARY_COLOR`（`#4d6bfe`，DeepSeek 蓝）与 `themeOverrides`，只覆盖 `common` 的主色系与圆角（8/6px）。不碰组件级 token，避免 Phase 4 定稿时到处改。
+3. **深色主题 = `darkTheme` + 自管页面底色**：NaiveUI 只负责组件内部颜色，页面底色（`#f5f6f8` / `#101014`）由 `.page--dark` 控制；等 `P1-03` 引入 `theme.css`/CSS 变量后再收口，现在不铺开硬编码色值。
+4. **本步不接 `NLayout`**：应用外壳属于 `P1-03`。演示页用固定定位的 `.page` 容器验证主题切换，避免过早承担布局高度问题（`NLayout position="absolute"` 需要祖先有高度）。
+5. **`NMessageProvider`/`NDialogProvider` 仍留到 `P1-03`**：本步没有 toast/确认框场景，接了也验证不到；`NConfigProvider` 单独接入已足够证明 locale/主题/覆盖可用。
+6. **观测口径修正**：`zhCN` 下 `NEmpty` 的默认文案实际是「无数据」，不是验收里凭印象写的「暂无数据」；以实际渲染值为准记录。
+7. **同步 `CHANGELOGS.md` 的措辞调整**：工作区里已有一处未提交的用户改动——把 `**计划与目标（开始前填写）**` / `**关键决策始末（结束前填写）**` 改成不带提示的标题。本步沿用新格式，并把该改动一并纳入本提交，避免文档版本与提交脱节。
+
+**验证记录**
+
+- 启动前先清理了 `P0-01` 遗留的 vite 进程（PID 24540 仍占 8091），再重启 dev，避免验到旧进程。
+- `pnpm add naive-ui`：`2.45.3`，+21 包，2.5 s。
+- `pnpm type`：0 错误。`pnpm build`：2662 modules，`static/index-*.js` 276.07 kB（gzip 85.47 kB）、`static/index-*.css` 0.35 kB。
+- 浅色实测：`.n-card` 背景 `rgb(255, 255, 255)`、圆角 `8px`；主按钮背景 `rgb(77, 107, 254)`、圆角 `8px`；`.n-empty__description` 文本「无数据」；`.page` 背景 `rgb(245, 246, 248)`。
+- 切换 `NSwitch` 后：`.n-card` 背景 `rgb(24, 24, 28)`、文字 `rgba(255, 255, 255, 0.82)`；`.page` → `rgb(16, 16, 20)`；开关进入 `n-switch--active`。再切回浅色正常。
+- 控制台：`Runtime.enable` + `Log.enable` 后重新加载并切换主题，`Runtime.exceptionThrown`、`console.error/warn`、`Log error/warn` 均为 0；另注入 `console.error('probe-error-from-check')` 验证该检测链路确实能捕获，排除假阴性。页面无 `vite-error-overlay`。
+- 控制台检查通过后，`pnpm type` / `pnpm build` 在最终代码上复跑仍为 0 错误。
+
+**遗留**
+
+- 入口 bundle 276 kB（gzip 85 kB）：如 Phase 5 有首屏预算，再评估自动导入或分包。
+- `themeOverrides` 仅覆盖主色与圆角，Card/Layout/Input 等组件级 token 与 `theme.css` 一起在 Phase 4 定。
+- `.page` 的底色是临时硬编码，`P1-03` 换成 `theme.css` 的 CSS 变量。
+- `src/App.vue` 仍是演示页，`P1-03` 会替换为应用外壳，届时接入 `NMessageProvider`/`NDialogProvider`。

@@ -1,55 +1,72 @@
 <script setup lang="ts">
+import {
+  NButton,
+  NCard,
+  NConfigProvider,
+  NEmpty,
+  NSpace,
+  NSwitch,
+  darkTheme,
+  dateZhCN,
+  zhCN,
+} from 'naive-ui'
 import { computed, ref } from 'vue'
 
-const count = ref(0)
-const status = computed(() => (count.value === 0 ? '等待交互' : `已点击 ${count.value} 次`))
+import { themeOverrides } from './app/theme'
+
+const isDark = ref(false)
+const theme = computed(() => (isDark.value ? darkTheme : null))
 </script>
 
 <template>
-  <main class="app">
-    <h1 class="title">chat-demo · Vue 3</h1>
-    <p class="status">{{ status }}</p>
-    <button class="action" type="button" @click="count += 1">点击验证</button>
-    <p class="hint">P0-01 spike：仅用于验证 SFC / TS / scoped CSS 与 dev、build、preview。</p>
-  </main>
+  <NConfigProvider :theme="theme" :locale="zhCN" :date-locale="dateZhCN" :theme-overrides="themeOverrides">
+    <div class="page" :class="{ 'page--dark': isDark }">
+      <NCard class="card" title="NaiveUI 接入验证">
+        <NSpace vertical :size="16">
+          <NSpace align="center" :size="12">
+            <NSwitch v-model:value="isDark" aria-label="切换深色主题" />
+            <span class="hint">{{ isDark ? '深色' : '浅色' }} · P0-02 spike：验证 locale / 主题 / themeOverrides</span>
+          </NSpace>
+
+          <NSpace :size="12">
+            <NButton type="primary">主按钮</NButton>
+            <NButton>默认按钮</NButton>
+            <NButton secondary>次要按钮</NButton>
+            <NButton text>文字按钮</NButton>
+          </NSpace>
+
+          <NEmpty />
+        </NSpace>
+      </NCard>
+    </div>
+  </NConfigProvider>
 </template>
 
 <style scoped>
-.app {
+.page {
+  position: fixed;
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
   align-items: flex-start;
-  max-width: 480px;
-  padding: 32px;
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 40px;
+  overflow: auto;
+  background: #f5f6f8;
+  transition: background-color 0.2s;
 }
 
-.title {
-  margin: 0;
-  font-size: 20px;
+.page--dark {
+  background: #101014;
 }
 
-.status {
-  margin: 0;
-  color: #4b5563;
-}
-
-.action {
-  padding: 6px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.action:hover {
-  border-color: #9ca3af;
+.card {
+  width: 100%;
+  max-width: 560px;
 }
 
 .hint {
-  margin: 0;
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 13px;
 }
 </style>
