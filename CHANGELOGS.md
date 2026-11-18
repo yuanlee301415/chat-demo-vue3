@@ -378,3 +378,49 @@
 - 没有 lint-staged/husky 之类的提交钩子（不在计划内）。
 - alias 在三处维护（tsconfig / vite / vitest），以后改路径需同步。
 - 未接覆盖率工具；Phase 2 写核心单测时再评估是否需要阈值。
+
+---
+
+## P1-03 main.ts + App.vue 外壳
+
+- 状态：已提交（`git log --grep P1-03`）
+- 开始：2026-11-18 16:59
+
+**计划与目标**
+
+- 目标：把演示页换成真正的应用外壳——`NConfigProvider` + `NMessageProvider` + `NDialogProvider` + `NLayout`/`NLayoutSider`（可折叠），并确认三个 Provider 都能用；`App.vue` 迁到 `src/app/`，`main.ts` 引入全局样式。
+- 范围：`src/app/App.vue`（新建，替代 `src/App.vue`）、`src/app/app.css`（全局样式）、`src/app/ProviderProbe.vue`（临时验证组件）、`src/main.ts`、`eslint.config.js`（v-html 豁免路径同步）、删除 `src/spikes/*`。
+- 不做：不实现会话列表/消息区/Markdown（Phase 3/4）；不接 Pinia 与 settings 持久化（Phase 2，主题暂不落盘）；不做设置弹窗（Phase 4）；不保留 P0-03/P0-04 的演示页。
+- 验收：
+  1. 外壳渲染：左侧 `NLayoutSider` 宽 240，点击收起后 64；主区显示欢迎占位。
+  2. `NMessageProvider`：点「测试提示」出现 `.n-message` 且文案正确。
+  3. `NDialogProvider`：点「测试确认框」出现 `.n-dialog`，点「知道了」关闭。
+  4. 主题切换：切深色后侧栏/内容区背景变化；固定中文生效（占位文案为中文）。
+  5. `pnpm type|lint|format:check|test` 全绿，控制台 0 报错；`src/spikes` 已删除且无残留引用。
+
+**关键决策始末**
+
+1. **`App.vue` 迁到 `src/app/`，`main.ts` 引入全局 `app.css`**：符合 §4 目标目录；`app.css` 只负责 `html/body/#app` 的高度与字体基线，配色仍交给 NaiveUI 主题。
+2. **Provider 层级**：`NConfigProvider` → `NMessageProvider` → `NDialogProvider` → `NLayout`。`useMessage`/`useDialog` 必须在 Provider 之下调用，所以在 `src/app/ProviderProbe.vue` 里做临时验证组件。
+3. **删除 `src/App.vue` 与 `src/spikes/*`（比计划提前）**：外壳替换后 spike 演示已无入口，留着就是死代码；P0-04 的验证结论已入档，Phase 4 会按正式设计重写 `services/markdown/*`。同时把 ESLint 的 `v-html` 豁免路径从 `src/App.vue` 收回到只剩 `AppIcon.vue`。
+4. **折叠态单独处理**：首版 64px 放不下「品牌图标 + 折叠按钮 + 两个页脚按钮」，截图里出现裁切；改为折叠时隐藏品牌、header 居中、footer 竖排。实测宽度 69px（64 + 边框）。
+5. **主题暂不落盘**：`isDark` 只是组件内 `ref`，settings store 在 Phase 2 才建，不提前引 localStorage 以免和后续 store 冲突。
+6. **深色下灰色文字对比度不足**：`.welcome__text` 与占位描述用了硬编码 `#6b7280`，深色主题下偏暗；计划 Phase 4 用 `theme.css` + CSS 变量统一收口，这里不提前铺开。
+
+**验证记录**
+
+- `pnpm build`：0 错误；入口 `index-*.js` 410.10 kB（gzip 129.23 kB，较 P1-01 的 329.47 kB 增大，来自 NLayout/NLayoutSider 与两个 Provider）；CSS 1.22 kB。
+- 外壳（dev 独立进程 8097）：`.n-layout-sider` 宽 240；`NEmpty` 文案「会话列表占位（Phase 3 接入）」；主区标题「欢迎页占位」。
+- 折叠：点击后宽度 69px（≈64 + 边框），品牌隐藏、按钮居中；折叠态截图确认无裁切。
+- 主题：切深色后 sider `rgb(24, 24, 28)`、layout `rgb(16, 16, 20)`；再切回 `rgb(255, 255, 255)`。
+- Provider：点「测试提示」出现 `.n-message`，文案「NMessageProvider 已接通」；点「测试确认框」出现 `.n-dialog`（标题「NDialogProvider 已接通」），点「知道了」后消失。
+- 控制台：整轮交互 `error/warn`、异常均为 0。
+- `pnpm type` / `lint` / `format:check` / `test` 全绿；`src/spikes` 已删除，全仓无 `spikes/`、`spike-shims` 残留引用。
+
+**遗留**
+
+- `ProviderProbe.vue` 与两个测试按钮是临时的，Phase 3 删除。
+- 折叠状态与主题都未持久化（Phase 2 的 settings store 负责）。
+- 深色下硬编码灰色文字对比度不足，Phase 4 用 CSS 变量收口。
+- 侧栏还没有「新对话」按钮与会话列表（Phase 3 接入 `SessionItem`/`Sider`）。
+- 入口体积 410 kB：Phase 5 再评估 NaiveUI 组件按需加载。

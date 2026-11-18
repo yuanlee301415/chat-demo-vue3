@@ -37,7 +37,7 @@ export default defineConfigWithVueTs(
   {
     // 内联渲染的 HTML 只来自受控的本地资源，逐文件豁免并在源码处注明原因。
     name: 'app/v-html-exemptions',
-    files: ['src/components/base/AppIcon.vue', 'src/App.vue'],
+    files: ['src/components/base/AppIcon.vue'],
     rules: { 'vue/no-v-html': 'off' },
   },
 )

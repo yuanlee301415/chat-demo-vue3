@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 
-import App from './App.vue'
+import './app/app.css'
+import App from './app/App.vue'
 import AppIcon from './components/base/AppIcon.vue'
 
 const app = createApp(App)
