@@ -20,6 +20,9 @@ import { highlightCode, renderMathHtml, renderMermaidSvg } from './spikes/markdo
 const isDark = ref(false)
 const theme = computed(() => (isDark.value ? darkTheme : null))
 
+/** 构建期注入（`define.__API_ORIGIN__`）；显示的也是 Phase 2 之后请求要用的地址。 */
+const apiOrigin = __API_ORIGIN__
+
 const MERMAID_CODE = `flowchart LR
   A[输入] --> B{需要思考?}
   B -->|是| C[深度思考]
@@ -76,6 +79,11 @@ const loadCode = () =>
           <NSpace align="center" :size="12">
             <NSwitch v-model:value="isDark" aria-label="切换深色主题" />
             <span class="hint">{{ isDark ? '深色' : '浅色' }} · 图标颜色跟随 currentColor</span>
+          </NSpace>
+
+          <NSpace align="center" :size="8">
+            <span class="hint">构建期 API 源</span>
+            <code class="api">{{ apiOrigin }}</code>
           </NSpace>
 
           <NSpace :size="12">
@@ -150,6 +158,11 @@ const loadCode = () =>
 .hint {
   color: #6b7280;
   font-size: 13px;
+}
+
+.api {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
 }
 
 .icons {

@@ -30,7 +30,7 @@
 
 | 决策点 | 结论 |
 |---|---|
-| 构建 | Vite 最新稳定版 + `@vitejs/plugin-vue`，dev/preview 端口 8091（计划原定 8090，被原项目 rspack dev server 在通配地址占用） |
+| 构建 | Vite 最新稳定版 + `@vitejs/plugin-vue`；dev 端口 8091（8090 被原项目 rspack dev server 占用），preview 用 Vite 默认 4173，两者可同时运行 |
 | 框架 | Vue 3 当前稳定线（3.5.x），`<script setup lang="ts">`，不用 Vapor/RC |
 | 类型 | TypeScript 6.x + `vue-tsc --noEmit`；TS 7 与 `vue-tsc` 兼容性在 Phase 0 验证 |
 | UI 库 | **直接使用 NaiveUI 组件**（`NButton`/`NInput`/`NSelect`/`NModal`/`NTooltip`/`NDropdown`/`NPopover`/`NLayout`/`NTabs`/`NForm`/`useMessage`/`useDialog`），不做仿 React API 的包装器 |
@@ -83,7 +83,7 @@
 ### 3.1 Vite
 
 - `index.html` 放项目根目录，入口 `<script type="module" src="/src/main.ts">`；删除 `src/index.html`。
-- `vite.config.ts` 导出 `createConfig({ apiOrigin, server })`；默认 API `https://api.deepseek.com`，支持自定义代理。
+- `vite.config.ts` 导出 `createConfig({ apiOrigin, server })`；默认 API `https://api.deepseek.com`，支持自定义代理。`P1-01` 已验证：传 `apiOrigin` 会改写 `define.__API_ORIGIN__`，传 `server.port` 只影响 dev。
 - `base: './'`；`build.assetsDir: 'static'`；`build.target` 为 `chrome105`/`edge105`/`safari16`/`firefox110`（桌面端：Chrome/Edge 105+、Safari 16+、Firefox 110+，不支持移动端，见 §0）。`P0-05` 已验证：把 `dist` 整体挂在 `/chat-demo-vue3/` 子路径下，`./static/*`、动态 chunk 与 KaTeX 字体都能正确加载。
 - CSS 用 `css.transformer: 'lightningcss'` + `browserslistToTargets`，保留现有 CSS Modules。
 - `define: { __API_ORIGIN__: JSON.stringify(apiOrigin) }`；`transformIndexHtml` 注入 `application-version`；`closeBundle` 拷贝 `LICENSE`。

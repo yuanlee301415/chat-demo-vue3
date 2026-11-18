@@ -10,10 +10,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "pnpm run type && vite build",
     "preview": "vite build && vite preview",
     "preview:dist": "vite preview",
-    "type": "vue-tsc --noEmit"
+    "type": "vue-tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
     "katex": "^0.18.11",
@@ -23,8 +23,11 @@
     "vue": "^3.5.45"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "@types/prismjs": "^1.26.6",
     "@vitejs/plugin-vue": "^6.0.11",
+    "browserslist": "^4.29.6",
+    "lightningcss": "^1.33.0",
     "typescript": "~6.0.3",
     "vite": "^8.3.8",
     "vue-tsc": "^3.3.14"

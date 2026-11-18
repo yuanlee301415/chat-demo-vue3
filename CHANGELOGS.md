@@ -287,3 +287,47 @@
 - 未在真实 Chrome 105 / Safari 16 / Firefox 110 上运行；本次用最新 Chrome 验证行为，低版本语法降级交给 Vite/Rolldown，未逐特性核对。
 - 真实 Pages 工作流与「`base` 和仓库名联动」留 Phase 5；当前靠 `base: './'` 规避仓库名耦合。
 - 静态服务器脚本是一次性验证工具，只留在临时目录，不入库。
+
+---
+
+## P1-01 根 index.html + vite.config.ts 定稿
+
+- 状态：已提交（`git log --grep P1-01`）
+- 开始：2026-11-18 16:17
+
+**计划与目标**
+
+- 目标：把 P0 期间的临时配置升级成可长期维护的形态——`vite.config.ts` 导出 `createConfig({ apiOrigin, server })` 工厂、`define.__API_ORIGIN__`、`transformIndexHtml` 注入版本 meta、`closeBundle` 拷贝 `LICENSE`、CSS 切到 lightningcss，并定稿根 `index.html`。
+- 范围：`vite.config.ts`、`index.html`、`src/env.d.ts`、`src/App.vue`（展示 API 源以便验证 define）、`package.json`（脚本与 `lightningcss`/`browserslist`/`@types/node`）、`tsconfig.json` + 新增 `tsconfig.node.json`、`LICENSE`（从原项目复制，MIT）。
+- 不做：不写 `services/api/client.ts`（Phase 2 才消费 `__API_ORIGIN__`）；不接 ESLint/Vitest（`P1-02`）；不配 Pages/CI（Phase 5）；不做 `file://`。
+- 验收：
+  1. `pnpm type` 同时覆盖应用与 `vite.config.ts`，0 错误。
+  2. `pnpm build` 产物含 `LICENSE`；`dist/index.html` 含 `application-version` meta（值 = `package.json` 的 version）；入口 JS 中 `__API_ORIGIN__` 被替换为 `https://api.deepseek.com`。
+  3. dev 与 build 的 HTML 都注入 version meta；页面渲染出 `API: https://api.deepseek.com`。
+  4. CSS 由 lightningcss 处理：构建无告警，页面观感与切换前一致。
+
+**关键决策始末**
+
+1. **`createConfig()` 工厂 + 默认导出**：默认导出 `createConfig()`，同时具名导出工厂，方便测试/代理复用；实测 `createConfig({ apiOrigin: 'http://localhost:8787', server: { port: 9100 } })` 正确改写 `define.__API_ORIGIN__` 与 `server.port`。`defineConfig` 去掉了——有 `UserConfig` 返回类型就够，留着反而成为未使用导入。
+2. **版本 meta 用 `transformIndexHtml` 的 tag 注入**：`order: 'pre'` + 返回 tag 数组，不去 HTML 里做字符串替换；版本从 `package.json` 读取，dev/build 都生效。
+3. **LICENSE 随产物发布**：`closeBundle` 复制 `LICENSE` 到 `configResolved` 拿到的真实 `outDir`（不硬编码 `dist`，兼容 `--outDir`）。源 LICENSE 从原项目复制（MIT，Copyright (c) 2026 DeepSeek），这是衍生作品应尽的许可义务。
+4. **lightningcss + browserslist 目标对齐**：`css.transformer: 'lightningcss'` 与 `browserslistToTargets(['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110'])` 保持与 `build.target` 一致；构建后主 CSS 从 1.16 → 1.26 kB，属输出格式变化，渲染实测一致。
+5. **preview 不钉端口（沿用用户 16:07 的改动）**：`preview: { host }`，dev 固定 8091、preview 用默认 4173，两者可同时运行；`package.json` 的 `preview`/`preview:dist` 脚本保留用户的版本，只改 `type` 与 `build`。计划 §1 的端口说明据此更新。
+6. **tsconfig 拆两份**：`vite.config.ts` 用了 `node:fs`/`path`，需要 `@types/node`；为避免把 Node 全局类型塞进前端代码，新增 `tsconfig.node.json`（`types: ["node"]`），根 `tsconfig.json` 只 include `src`。`pnpm type` 跑 `vue-tsc` + `tsc -p tsconfig.node.json`，`build` 改为 `pnpm run type && vite build`，避免「配置类型坏了但构建还成功」。
+7. **`__API_ORIGIN__` 的可见验证**：App.vue 显示一行「构建期 API 源」，既证明 define 生效，也给 Phase 2 留对照点；该展示随演示页在 Phase 3 删除。
+
+**验证记录**
+
+- `pnpm type`：两个 project 全部 0 错误（`vue-tsc` + `tsc -p tsconfig.node.json`）。
+- `pnpm build`：0 错误；`dist/` 顶层为 `index.html` + `LICENSE`（1086 B）+ `static/`；`index.html` 含 `<meta name="application-version" content="0.1.0">`；入口 JS 内联 `https://api.deepseek.com`；主 CSS 1.26 kB（lightningcss 输出）。
+- dev 实测（独立进程跑在 8095，避开当时已被占用的 8091）：version meta `0.1.0`、页面显示 `https://api.deepseek.com`、主按钮 `rgb(77, 107, 254)` / 圆角 `8px`、页面底色 `rgb(245, 246, 248)`、30 个图标格，控制台 0 报错。
+- preview 实测（独立进程 4175，避开 4173）：同一套断言全部通过，`problems: []`。
+- 工厂参数实测：`createConfig({ apiOrigin: 'http://localhost:8787', server: { port: 9100 } })` → `define.__API_ORIGIN__ = "http://localhost:8787"`、`server.port = 9100`、`preview = { host: '127.0.0.1' }`、`base = './'`、`css.transformer = 'lightningcss'`。
+- 备注：验证时 8091/4173 已被本会话之外启动的 dev/preview 占用，为不打扰它们，另开 8095/4175 跑独立进程。
+
+**遗留**
+
+- `src/App.vue` 仍是演示页，「构建期 API 源」的展示会在 Phase 3 随页面一起删。
+- `tsconfig` 的严格项（如 `exactOptionalPropertyTypes`）与 `jsconfig.json`/`paths` 合并仍留给 `P1-02`。
+- preview 不钉端口意味着 `pnpm preview` 可能落到不同端口；CI 需要固定端口时要显式传 `--port`。
+- 只复制了本项目 LICENSE，未生成第三方依赖的许可清单（Phase 5 若对外发布再补）。
