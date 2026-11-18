@@ -509,3 +509,43 @@
 - `en.ts`、`useTranslate`、`translate`、`settings.locale`、`isChineseBrowser`、`document.lang` 监听从未移植，无需删除。
 - `latestReminder`/`sessionGroups`/`describeReply`/`attachments`/`drafts` 里的 `t()` 调用要等对应模块在 Phase 2/3 移植时才接上。
 - `t()` 没有运行时缺键保护（类型系统已拦住），`isTranslationKey` 留给外部输入做守卫。
+
+---
+
+## P1-99 Phase 1 门禁
+
+- 状态：已提交（`git log --grep P1-99`）
+- 开始：2026-11-18 17:19
+
+**计划与目标**
+
+- 目标：执行计划 §6 的 Phase 1 门禁——空壳应用 dev/preview 可启动、类型/lint/格式/测试全绿、无残留死引用；同时确认 `P1-05`（移除移动端/语音/导入导出入口）在本仓库的真实状态。
+- 范围：只做验证与文档记录；发现小问题就地修复，不做功能扩展。
+- 不做：不做 Phase 2 的 store/DB/单测；不清理 `zh.ts` 里语音/导入导出/语言切换的死 key（§3.4 留给 Phase 5）。
+- 验收：
+  1. `pnpm type|lint|format:check|test|build` 全部 exit 0。
+  2. dev 与 preview 各自独立进程返回 200，外壳渲染出侧栏与欢迎语。
+  3. 全仓 grep 无 `spikes`/`useTranslate`/`en.ts`/`jsconfig`/`react`/`zustand`/`rspack`/`fflate`/`dangerouslySetInnerHTML` 等残留。
+  4. `P1-05` 的结论写清楚（有对象则补做，无对象则说明理由）。
+
+**关键决策始末**
+
+1. **`P1-05` 无对象，合并进本门禁**：移动端/语音/导入导出三个模块在重写里从未移植（`src` 下没有对应文件），P0-03 提取图标时也已丢掉 mic/menu/globe/upload/download 五个专用图标；所以它只剩「证明没有残留」这一半，作为门禁的一项执行，不单独占一个空提交。`zh.ts` 里对应的死 key 按 §3.4 留给 Phase 5。
+2. **`P0-99` 一并补做**：Phase 0 的门禁当时因为 lint 还没配置而跳过，现在两项都能过——命令套件全绿，spike 结论补进了计划 §3.1。
+3. **门禁固定用独立端口**：8091/4173 上可能有用户自己启动的进程，门禁一律在 8097（dev）与 4175（preview）起独立实例，避免「验到的其实是别人的进程」。
+4. **不造空提交**：`P1-05`/`P0-99` 的产物就是本文档记录，合进 `P1-99` 一条提交更清楚。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `test` / `build` 全部 exit 0；`test` 8 个用例通过；构建 2702 modules，入口 `index-*.js` 419.10 kB（gzip 133.11 kB）、CSS 1.40 kB。
+- dev（8097）：HTTP 200；`<html lang="zh-CN">`；侧栏宽 240；欢迎语「今天有什么可以帮到你？」；5 个按钮；`application-version=0.1.0`；控制台 0 报错。
+- preview（4175，读 `dist`）：与 dev 完全一致，控制台 0 报错。
+- 残留引用 grep（排除 `node_modules`/`dist`/`zh.ts`）：`spikes`、`spike-shims`、`useTranslate`、`zustand`、`rspack`、`fflate`、`dangerouslySetInnerHTML`、`useEffect`、`useState`、`react`、`isChineseBrowser`、`translate(` 全部 0 命中。
+- 移除功能 grep：`speech`、`recorder`、`voice`、`tts`、`readAloud`、`backup`、`history`、`zip`、`staging`、`importArchive`、`exportArchive`、`mobile`、`visualViewport`、`isMobile` 全部 0 命中。
+- 计划同步：§3.1 写入 `P0-04` 的验证结论；Phase 0 与 Phase 1 标题标记为已完成。
+
+**遗留**
+
+- `zh.ts` 中仍有 20 余条语音/导入导出/语言切换的死 key，Phase 5 统一删。
+- P0-04 的 spike 演示页已在 `P1-03` 删除，mermaid/katex/prism 的运行时验证要等 Phase 4 的真实组件。
+- 门禁不含 E2E 与可访问性自动检查（计划明确不做）。

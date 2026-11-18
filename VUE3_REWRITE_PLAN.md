@@ -89,7 +89,7 @@
 - CSS 用 `css.transformer: 'lightningcss'` + `browserslistToTargets`，保留现有 CSS Modules。
 - `define: { __API_ORIGIN__: JSON.stringify(apiOrigin) }`；`transformIndexHtml` 注入 `application-version`；`closeBundle` 拷贝 `LICENSE`。
 - 不输出 `file://` 产物；README 删除“双击 index.html”说明。
-- 验证 `mermaid`、`prismjs/components/*`、`katex/contrib/mhchem` 的动态导入；必要时配置 `optimizeDeps.include/exclude`。
+- 动态导入已验证（`P0-04`）：`mermaid`/`katex`/`prismjs` 首屏 0 请求、生产构建各自独立 chunk；`katex` 与 mermaid 的传递依赖对齐到 `^0.18.11` 以免重复打包；`optimizeDeps.include` 的取舍见 `vite.config.ts` 注释。
 
 ### 3.2 NaiveUI
 
@@ -296,7 +296,7 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 
 每个 Phase 内拆成带编号的步骤（§5.3），阶段末固定一步 `P<n>-99` 执行门禁。Phase 0/1 的步骤清单直接定在此处；Phase 2–5 在各自开始时按同样粒度补登到 `CHANGELOGS.md`。
 
-### Phase 0：Vite/NaiveUI/图标验证（2–3 天）
+### Phase 0：Vite/NaiveUI/图标验证（2–3 天）✅ 已完成（`P0-00`–`P0-05`；门禁并入 `P1-99`）
 
 - **P0-00** 仓库基线：`.editorconfig`、`.gitignore`、`README.md`、本计划、`CHANGELOGS.md` 模板（首次提交）。
 - **P0-01** Vite + Vue 3 + TS 最小工程：`pnpm dev`/`build`/`preview` 三条命令跑通，暂不接 NaiveUI。
@@ -306,7 +306,7 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 - **P0-05** 产物结构：确认 `base`、`assetsDir`、Pages 子路径下资源可加载；记录浏览器 target。
 - **P0-99** 门禁：`vue-tsc`/lint/`build`/`preview` 通过；spike 结论写回本文档 §3。
 
-### Phase 1：脚手架与基础层（3–4 天）
+### Phase 1：脚手架与基础层（3–4 天）✅ 已完成（`P1-01`–`P1-04` + `P1-99`，详见 `CHANGELOGS.md`）
 
 - **P1-01** 根 `index.html` + `vite.config.ts` 定稿（`createConfig`、`define`、`transformIndexHtml`）。
 - **P1-02** `tsconfig` / `vue-tsc` / ESLint / Prettier / Vitest 配置与 `pnpm type|lint|test` 脚本。
