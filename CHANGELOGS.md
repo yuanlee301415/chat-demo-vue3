@@ -687,3 +687,41 @@
 
 ---
 
+## P2-04a 网络层：sse / parseEvent / client
+
+- 状态：已提交（`git log --grep P2-04a`）
+- 开始：2026-11-19 13:47
+
+**计划与目标**
+
+- 目标：把流式请求的底层搬过来——SSE 解析器、事件校验、HTTP 客户端（`request`/`verifyApiKey`/`uploadFile`/`deleteFile`/`streamMessage`），并补单测；为 `P2-04b`（reply）与 `P2-04c`（stream store）铺路。
+- 范围：`src/services/api/sse.ts`、`parseEvent.ts`、`client.ts`、对应测试；`vitest.config.ts` 补 `__API_ORIGIN__` 的 define。
+- 不做：不移植 `reply.ts`（`P2-04b`）；不接 store/UI（`P2-04c` / Phase 3）；不做语音接口。
+- 验收：
+  1. SSE 解析覆盖 CRLF/LF、跨分片、注释行、多行 `data`、含 NUL 的 `id`、`end()` 丢弃规则。
+  2. `request` 的 network/http 分类，`streamMessage` 的正常流、`stream` 错误帧、`protocol`、`interrupted` 路径都有测试。
+  3. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **新 `client.ts` 不再 import i18n**：`ApiError` 已在 `P2-03` 拆出，客户端只负责 HTTP/SSE 编排与错误归一。
+2. **`vitest.config.ts` 补 `define.__API_ORIGIN__`**：客户端模块在测试里会读这个构建期常量，不补会直接 ReferenceError；值与 `vite.config.ts` 的默认值一致。
+3. **保持「主动中止不包装」的语义**：`init.signal?.aborted` 为真时抛原始 AbortError，不转成 `network`；单测覆盖。
+4. **`streamMessage` 的失败路径全部有用例**：`protocol`（非 SSE）、`stream`（错误帧）、`interrupted`（没有 `message_stop` 就结束）、`network`（request 层）；`ping` 与保活注释在解析层丢弃。
+5. **SSE 两处认知修正**：`end()` 只在结尾是 CR（等价换行）时派发，未以空行结尾的事件按规范丢弃；中止测试用「永不结束的流」验证 `reader.cancel` 生效，而不是用已关闭的流。
+6. **不移植语音接口**（`speech.ts`）；`uploadFile`/`deleteFile` 保留，附件功能仍需要。
+
+**验证记录**
+
+- `pnpm test`：**82 个用例 / 13 个文件**全过，新增 22 个——sse 7、parseEvent 7、client 8。
+- 覆盖点：分片拼接、CRLF/LF、多行 `data`、注释行、含 NUL 的 `id`、`end()` 丢弃；`message_start` usage、引用过滤、`server_tool_use`/搜索结果校验、delta 与 `stop_reason`；`request` 的 network/http/abort；`streamMessage` 的正常流、protocol、stream、interrupted；`ApiError` 的文案渲染。
+- `pnpm type` / `lint` / `format:check` / `build` 全绿；bundle 体积保持 425.88 kB（客户端尚未被界面引用）。
+
+**遗留**
+
+- `reply.ts`（事件合并、上下文裁剪、`settleReply`）在 `P2-04b`。
+- `stream` store 与 session store 的收尾/排空流集成在 `P2-04c`。
+- `uploadFile`/`deleteFile` 暂无单测（依赖 `File`/`FormData`），随 `P2-05` 附件步骤补。
+
+---
+
