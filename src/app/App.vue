@@ -7,6 +7,7 @@ import WelcomeView from '../components/session/WelcomeView.vue'
 import AppSider from '../components/sider/AppSider.vue'
 import CollapsedSider from '../components/sider/CollapsedSider.vue'
 import SearchPanel from '../components/search/SearchPanel.vue'
+import SettingsDialog from '../components/settings/SettingsDialog.vue'
 import { useI18n } from '../i18n'
 import { useSessionStore } from '../stores/session'
 import { useSettingsStore } from '../stores/settings'
@@ -95,6 +96,8 @@ onMounted(() => {
             </div>
           </NLayoutContent>
         </NLayout>
+
+        <SettingsDialog />
       </NDialogProvider>
     </NMessageProvider>
   </NConfigProvider>

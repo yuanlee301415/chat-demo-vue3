@@ -6,6 +6,7 @@ import { useI18n } from '../../i18n'
 import { formatSize } from '../../services/attachments'
 import type { UserMessage } from '../../services/chat/types'
 import { useStreamStore } from '../../stores/stream'
+import { useUiStore } from '../../stores/ui'
 
 const props = defineProps<{
   /** 所属会话 id */
@@ -16,6 +17,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const stream = useStreamStore()
+const ui = useUiStore()
 const toast = useMessage()
 const editing = ref(false)
 const draft = ref('')
@@ -38,7 +40,7 @@ const cancelEdit = () => {
 
 /** 保存编辑：新增同父问题版本，旧回答仍可切回。 */
 const saveEdit = () => {
-  if (!canSave.value) {
+  if (!canSave.value || !ui.ensureApiKey()) {
     return
   }
   if (stream.edit(props.sessionId, props.message.id, draft.value.trim())) {

@@ -4,7 +4,9 @@ import { shallowRef } from 'vue'
 import { reportStorageError } from '../services/chat/db'
 import { settleInterrupted } from '../services/chat/interrupted'
 import { toSessionSummary, type Session, type SessionSummary } from '../services/chat/types'
-import { useRuntimeStore } from './runtime'
+import { useDraftsStore } from './drafts'
+import { resetChatRuntime, useRuntimeStore } from './runtime'
+import { useUiStore } from './ui'
 
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
@@ -29,6 +31,9 @@ const omitKey = <T>(record: Record<string, T>, key: string): Record<string, T> =
 export const useSessionStore = defineStore('session', () => {
   const { runtime } = useRuntimeStore()
   const db = runtime.db
+
+  /** 删除全部进行中标记：避免连点重复清库。 */
+  let deletingAll = false
 
   const ready = shallowRef(false)
   const initError = shallowRef(false)
@@ -253,6 +258,42 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * 删除全部会话：先中止所有生成与自动标题请求并等流收尾（含落盘），
+   * 再清空本地三张表与运行态，最后重置列表、草稿与搜索面板。
+   */
+  const deleteAll = async (): Promise<boolean> => {
+    if (deletingAll) {
+      return false
+    }
+    deletingAll = true
+    try {
+      const handles = [...runtime.streaming.values()]
+      for (const handle of handles) {
+        handle.controller.abort()
+      }
+      for (const controller of runtime.titleRequests) {
+        controller.abort()
+      }
+      await Promise.all(handles.map((handle) => handle.done))
+      await db.clearAllSessions()
+      resetChatRuntime(runtime)
+      sessions.value = []
+      sessionCache.value = {}
+      sessionLoadErrors.value = {}
+      sessionSaveErrors.value = {}
+      activeId.value = null
+      useDraftsStore().clearAll()
+      useUiStore().closeSearchPanel()
+      return true
+    } catch (error) {
+      reportStorageError('delete all sessions')(error)
+      return false
+    } finally {
+      deletingAll = false
+    }
+  }
+
   return {
     ready,
     initError,
@@ -266,6 +307,7 @@ export const useSessionStore = defineStore('session', () => {
     newChat,
     rename,
     remove,
+    deleteAll,
     ensureLoaded,
     persist,
     retrySave,

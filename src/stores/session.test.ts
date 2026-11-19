@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useRuntimeStore } from './runtime'
 import type { Session } from '../services/chat/types'
+import { useDraftsStore } from './drafts'
 import { useSessionStore } from './session'
 
 /** 构造一个最小会话（指定更新时间用于排序）。 */
@@ -132,5 +133,25 @@ describe('session store', () => {
 
     expect(store.activeId).toBeNull()
     expect(store.sessionCache.a).toBeDefined()
+  })
+
+  it('deleteAll 清空会话、详情缓存、草稿与本地库', async () => {
+    await useRuntimeStore().runtime.db.saveSession(session('a', 1))
+    await useRuntimeStore().runtime.db.saveSession(session('b', 2))
+
+    const store = useSessionStore()
+    await store.init()
+    store.select('a')
+    await store.ensureLoaded('a')
+    useDraftsStore().setText('a', '还没发出去')
+
+    const cleared = await store.deleteAll()
+
+    expect(cleared).toBe(true)
+    expect(store.sessions).toEqual([])
+    expect(store.sessionCache).toEqual({})
+    expect(store.activeId).toBeNull()
+    expect(useDraftsStore().getDraft('a').text).toBe('')
+    expect(await useRuntimeStore().runtime.db.loadSessionSummaries()).toEqual([])
   })
 })

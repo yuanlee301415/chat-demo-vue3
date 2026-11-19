@@ -7,6 +7,7 @@ import { ACCEPT } from '../../services/attachments'
 import { useDraftsStore } from '../../stores/drafts'
 import { useSettingsStore } from '../../stores/settings'
 import { useStreamStore } from '../../stores/stream'
+import { useUiStore } from '../../stores/ui'
 import { useUploadsStore } from '../../stores/uploads'
 import DraftAttachments from './DraftAttachments.vue'
 
@@ -21,6 +22,7 @@ const drafts = useDraftsStore()
 const uploads = useUploadsStore()
 const settings = useSettingsStore()
 const stream = useStreamStore()
+const ui = useUiStore()
 const focused = ref(false)
 const dragging = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -45,9 +47,9 @@ const canSend = computed(() => (text.value.trim() !== '' || attachments.value.le
 /** 当前会话是否正在生成。 */
 const streaming = computed(() => props.sessionId !== null && stream.isStreaming(props.sessionId))
 
-/** 提交草稿；成功后 store 会清空草稿并选中新会话。 */
+/** 提交草稿；没有 API Key 时先打开设置的数据页。 */
 const submit = () => {
-  if (!canSend.value || streaming.value) {
+  if (!canSend.value || streaming.value || !ui.ensureApiKey()) {
     return
   }
   stream.sendDraft(props.sessionId)

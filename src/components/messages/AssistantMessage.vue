@@ -27,6 +27,9 @@ const stream = useStreamStore()
 const ui = useUiStore()
 const toast = useMessage()
 
+/** 余额不足时的充值入口。 */
+const TOP_UP_URL = 'https://platform.deepseek.com/top_up'
+
 /** 由回复推导时间线、正文与来源；来源不变时复用数组，避免流式重解析引用。 */
 const view = useReplyView(
   () => props.message,
@@ -98,7 +101,11 @@ const continueReply = () => {
     <MarkdownContent v-if="template !== null" class="content" :content="template" :loading="false" />
     <p v-else-if="answer === null && !streaming" class="muted">{{ t('messageThinkStopped') }}</p>
 
-    <p v-if="errorText !== null" class="error" role="alert">{{ errorText }}</p>
+    <p v-if="errorText !== null" class="error" role="alert">
+      <span>{{ errorText }}</span>
+      <NButton v-if="notice?.action === 'apiKey'" text size="tiny" class="errorAction" @click="ui.openSettings('data')">{{ t('changeApiKey') }}</NButton>
+      <a v-else-if="notice?.action === 'topUp'" class="errorAction" :href="TOP_UP_URL" target="_blank" rel="noreferrer">{{ t('topUp') }}</a>
+    </p>
 
     <button v-if="!streaming && !refused && view.searchResults.length > 0" type="button" class="summary" :class="{ summaryActive: ui.isSearchPanelOpen(summaryEntry) }" @click="toggleSummary">
       <SiteThumbnails :sources="view.searchResults" />
@@ -132,6 +139,10 @@ const continueReply = () => {
   margin: 0;
   color: #d64545;
   font-size: 13px;
+}
+
+.errorAction {
+  margin-left: 4px;
 }
 
 .summary {

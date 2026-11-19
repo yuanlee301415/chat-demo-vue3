@@ -138,7 +138,7 @@ export const useStreamStore = defineStore('stream', () => {
 
       try {
         // 续写沿用原回答的系统信息快照；新回复按当前时间生成。
-        const latestReminder = request.prefix?.latestReminder ?? createLatestReminder()
+        const latestReminder = request.prefix?.latestReminder ?? createLatestReminder(settings.location)
         reply = { ...reply, latestReminder }
         updateReply(sessionId, reply)
         const events = streamMessage(

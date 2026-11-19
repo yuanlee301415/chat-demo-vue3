@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { Source } from '../services/chat/view'
+import { useSettingsStore } from './settings'
 import { useUiStore } from './ui'
 
 /** 造一个来源；只关心编号与地址。 */
@@ -55,5 +56,35 @@ describe('ui store', () => {
 
     expect(ui.searchPanelOpen).toBe(false)
     expect(ui.searchPanelSources).toEqual([])
+  })
+
+  it('设置弹窗记录打开分组，关闭后保留分组', () => {
+    const ui = useUiStore()
+
+    expect(ui.settingsOpen).toBe(false)
+    ui.openSettings('data')
+    expect(ui.settingsOpen).toBe(true)
+    expect(ui.settingsSection).toBe('data')
+
+    ui.setSettingsSection('general')
+    ui.closeSettings()
+
+    expect(ui.settingsOpen).toBe(false)
+    expect(ui.settingsSection).toBe('general')
+  })
+
+  it('ensureApiKey 没有 Key 时打开数据页，有 Key 时不打开弹窗', () => {
+    const ui = useUiStore()
+    const settings = useSettingsStore()
+
+    expect(ui.ensureApiKey()).toBe(false)
+    expect(ui.settingsOpen).toBe(true)
+    expect(ui.settingsSection).toBe('data')
+
+    ui.closeSettings()
+    settings.setApiKey('sk-test')
+
+    expect(ui.ensureApiKey()).toBe(true)
+    expect(ui.settingsOpen).toBe(false)
   })
 })

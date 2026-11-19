@@ -7,11 +7,13 @@ import { useI18n } from '../../i18n'
 import { groupSessions } from '../../services/chat/sessionGroups'
 import { useSessionStore } from '../../stores/session'
 import { useSettingsStore } from '../../stores/settings'
+import { useUiStore } from '../../stores/ui'
 import SessionItem from './SessionItem.vue'
 
 const { t } = useI18n()
 const store = useSessionStore()
 const settings = useSettingsStore()
+const ui = useUiStore()
 const dialog = useDialog()
 const message = useMessage()
 const { icon: themeIcon, label: themeLabel, cycle: cycleTheme } = useThemeMode()
@@ -105,6 +107,16 @@ const confirmDelete = (id: string) => {
     </div>
 
     <footer class="sider__footer">
+      <NTooltip placement="top">
+        <template #trigger>
+          <NButton quaternary circle :aria-label="t('settings')" @click="ui.openSettings('general')">
+            <template #icon>
+              <AppIcon name="settings" />
+            </template>
+          </NButton>
+        </template>
+        {{ t('settings') }}
+      </NTooltip>
       <NTooltip placement="top">
         <template #trigger>
           <NButton quaternary circle :aria-label="t('avatarMenuSettingsDialogThemeItemLabel')" @click="cycleTheme">

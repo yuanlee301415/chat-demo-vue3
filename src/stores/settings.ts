@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
 import { APP_NAMESPACE } from '../services/appNamespace'
+import { isChineseBrowser, normalizeLocation, type UserLocation } from '../services/location'
 
 /** 主题偏好：跟随系统 / 浅色 / 深色。 */
 export type ThemePreference = 'system' | 'light' | 'dark'
@@ -16,6 +17,7 @@ const PREFIX = `${APP_NAMESPACE}:`
 const KEYS = {
   apiKey: `${PREFIX}api-key`,
   theme: `${PREFIX}theme`,
+  location: `${PREFIX}location`,
   thinking: `${PREFIX}thinking`,
   search: `${PREFIX}search`,
   siderCollapsed: `${PREFIX}sider-collapsed`,
@@ -53,12 +55,29 @@ const readTheme = (): ThemePreference => {
 }
 
 /**
+ * 读取位置：中文浏览器要求选到省份，其他浏览器只保留国家/地区，
+ * 避免浏览器语言变化后留下界面上看不到的省/市选择。
+ */
+const readLocation = (): UserLocation | null => {
+  try {
+    const location = normalizeLocation(JSON.parse(read(KEYS.location) ?? 'null'))
+    if (location === null) {
+      return null
+    }
+    return isChineseBrowser() ? (location.region === 'CN' && location.province ? location : null) : { region: location.region }
+  } catch {
+    return null
+  }
+}
+
+/**
  * 本机设置（localStorage）。语言固定中文、语音已移除，因此不再有 `locale`/`ttsVoice`。
  * 写操作统一走 action，组件不要直接改 state。
  */
 export const useSettingsStore = defineStore('settings', () => {
   const apiKey = shallowRef<string | null>(read(KEYS.apiKey))
   const theme = shallowRef<ThemePreference>(readTheme())
+  const location = shallowRef<UserLocation | null>(readLocation())
   const thinking = shallowRef(read(KEYS.thinking) === 'true')
   const search = shallowRef(read(KEYS.search) === 'true')
   const siderCollapsed = shallowRef(read(KEYS.siderCollapsed) === 'true')
@@ -73,6 +92,13 @@ export const useSettingsStore = defineStore('settings', () => {
   const setTheme = (value: ThemePreference) => {
     write(KEYS.theme, value)
     theme.value = value
+  }
+
+  /** 更新位置并持久化；非法位置按清除处理。 */
+  const setLocation = (value: UserLocation | null) => {
+    const locationValue = normalizeLocation(value)
+    write(KEYS.location, locationValue === null ? null : JSON.stringify(locationValue))
+    location.value = locationValue
   }
 
   /** 更新深度思考开关并持久化。 */
@@ -96,11 +122,13 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     apiKey,
     theme,
+    location,
     thinking,
     search,
     siderCollapsed,
     setApiKey,
     setTheme,
+    setLocation,
     setThinking,
     setSearch,
     setSiderCollapsed,

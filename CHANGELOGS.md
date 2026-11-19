@@ -1439,3 +1439,52 @@
 - 面板不支持 Esc 关闭/焦点陷阱（旧版也没有）；需要时在 `P4-99` 或 `P5` 统一补。
 - 面板内不做二次检索/排序，按计划保持「结果列表」定位。
 - 未做移动端全屏面板（计划只保留桌面端）。
+## P4-03 设置弹窗（主题 / 位置 / API Key / 删除全部）
+
+- 状态：已提交（`git log --grep P4-03`）
+- 开始：2026-11-19 16:55
+
+**计划与目标**
+
+- 目标：设置弹窗分「通用设置」「数据管理」两组——主题三选、位置（省市 / 国家地区）、API Key 校验与掩码、删除全部对话；侧栏与折叠侧栏都能打开；没有 API Key 时发消息自动打开「数据管理」。
+- 范围：`stores/ui.ts`（弹窗状态 + `ensureApiKey`）、`stores/session.ts`（`deleteAll`）、`stores/settings.ts`（`location`）、新增 `services/location.ts`、`services/locationData.ts`、`components/settings/{SettingsDialog,ApiKeyField}.vue`、`components/settings/useApiKeyForm.ts`；`latestReminder` 改为带位置；`App.vue`、`AppSider`、`CollapsedSider`、`ChatInput`、`UserMessage`、`AssistantMessage` 接入。
+- 不做：语言切换（固定中文）、朗读音色、导入导出（已从计划移除）；旧数据迁移（新键前缀）。
+- 验收：
+  1. 侧栏齿轮打开设置；通用页可切三主题、选省份/城市（非中文浏览器为国家/地区），刷新后保持。
+  2. 数据页：输入 Key 先校验后保存，保存后只显示掩码，可再次编辑；校验失败按 401 / 网络 / 其他给出文案。
+  3. 「删除所有对话」二次确认后清空会话、附件、草稿并回到欢迎页；失败提示重试。
+  4. 没有 Key 时点发送会打开设置并停在数据页。
+  5. 位置写入 `latest_reminder` 的地区字段。
+  6. `type|lint|format:check|test|build` 全绿；无头 Chrome 控制台 0 报错。
+
+**关键决策始末**
+
+1. **弹窗状态放进 `stores/ui.ts`**：`settingsOpen` / `settingsSection` / `openSettings` / `closeSettings` / `ensureApiKey` 与搜索面板共用同一个 UI store（计划 §3.5），组件不各自维护开关；`ensureApiKey` 只在没有 Key 时打开「数据管理」。
+2. **用 NaiveUI 组件直接拼**：`NModal preset="card"` + `NTabs` 两组、`NRadioGroup` 主题三选、`NSelect` 位置、`NInput` 密码框；不复刻旧版左侧导航与自定义 Select，接受 NaiveUI 视觉。
+3. **API Key 先校验后保存**：沿用 `GET /models` 校验；保存后只显示等长掩码，401 / 网络 / 其他错误分别给文案；输入值留在 `useApiKeyForm` 组合式函数里，切换分组不丢。
+4. **位置是新增能力**：新增 `services/location.ts` 与 `locationData.ts`（行政区划数据），持久化为 JSON 并用 `normalizeLocation` 校验；`isChineseBrowser()` 决定省市两级还是国家/地区单级，非中文浏览器只保留地区，避免界面看不到省市却把省市写进提醒。
+5. **`latestReminder` 接收位置**：中国取市/省名，其他国家取中文地区名；流开始时传入 `settings.location` 并随回复快照保存，续写沿用原快照。
+6. **`deleteAll` 放 session store**：中止全部流与标题请求 → 等 `done` → 清空三张表 → `resetChatRuntime` → 清列表 / 缓存 / 选中 → 清草稿与搜索面板。用 store 闭包里的 `deletingAll` 防连点，依赖方向保持 `session → drafts/ui → settings`，不引入循环。
+7. **没有 Key 的入口统一**：`ChatInput` 发送与 `UserMessage` 保存编辑前调用 `ensureApiKey()`；错误提示里的「更换 API Key / 前往充值」动作也在本步接上（`P4-01` 遗留项）。
+8. **验证手段**：`NSelect` 监听 `mousedown`，`element.click()` 打不开菜单，改用 CDP 真实鼠标事件；`Page.reload` 后先等 `readyState === 'complete'` 与目标元素出现，避免旧文档/新文档竞争导致误判。
+
+**验证记录**
+
+- 命令：`pnpm type` / `lint` / `format:check` / `test`（149 例 / 25 文件）/ `docs:fields` / `build` → **全部 exit 0**。
+- 构建：入口 `index-xT_VTFTs.js` 819.71 kB（gzip 251.14 kB），CSS 46.00 kB；比 `P4-02` 增加约 134 kB，来自 NSelect/NTabs/NModal 等组件首次进入主包（见遗留）。
+- 无头 Chrome（dev 8097，覆写 `navigator.language=zh-CN`，预置 2 个会话）：
+  - 侧栏齿轮打开设置：默认「通用设置」，tab 为「通用设置 / 数据管理」，3 个主题项、省市两个选择器，标题「设置」。
+  - 主题：深色 → `body.dark`、`localStorage:theme=dark`、`colorScheme=dark`；浅色 → 关闭。
+  - 位置：河北省 → 石家庄市，存储 `{"region":"CN","province":"130000","city":"130100"}`，选择器显示两行名称。
+  - 数据页：错误 Key（`fetch` 401 替身）→「API Key 无效，请检查后重试」；正确 Key（200 替身）→ 11 位掩码、`localStorage:api-key=sk-good-key`。
+  - 删除：确认弹窗文案正确；确认后会话 0、列表空态、回到欢迎页。
+  - 删除 Key 后刷新并发送 → 设置弹窗自动打开且停在「数据管理」，没有新建会话。
+  - 非中文浏览器（`language=en-US`）→ 位置只有一个国家/地区选择器，显示「中国」。
+  - 控制台 **0 报错 / 0 警告**。截图存临时目录（`dsh-p4-03.png` 数据页浅色、`dsh-p4-03-dark.png` 通用页深色），未入库。
+
+**遗留**
+
+- 设置弹窗常驻挂载，新增组件把主包从 685 kB 推到 819.71 kB；Phase 5 统一拆包（可用异步组件按需加载弹窗）。
+- `locationData.ts` 携带完整行政区划数据（约 13 KB），Phase 5 评估是否按需加载。
+- 没有「清除 API Key」入口（旧版只能覆盖），按不新增功能原则保留。
+- 弹窗只做桌面布局（计划不支持移动端）。
