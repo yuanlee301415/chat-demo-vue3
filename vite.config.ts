@@ -14,8 +14,12 @@ const DEFAULT_HOST = '127.0.0.1'
 
 const DEFAULT_API_ORIGIN = 'https://api.deepseek.com'
 
-/** 桌面端目标；与 `build.target` 保持一致，供 lightningcss 降级 CSS。 */
-const BROWSER_QUERIES = ['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
+/** 桌面端浏览器目标：`build.target`、lightningcss 与 browserslist 查询都从这里派生。 */
+const BROWSER_TARGETS = { chrome: 105, edge: 105, safari: 16, firefox: 110 } as const
+
+const BROWSER_QUERIES = Object.entries(BROWSER_TARGETS).map(([browser, version]) => `${browser} >= ${version}`)
+
+const BUILD_TARGET = Object.entries(BROWSER_TARGETS).map(([browser, version]) => `${browser}${version}`)
 
 const targets = browserslistToTargets(browserslist(BROWSER_QUERIES))
 
@@ -97,7 +101,7 @@ export const createConfig = (options: AppConfigOptions = {}): UserConfig => {
     },
     build: {
       assetsDir: 'static',
-      target: ['chrome105', 'edge105', 'safari16', 'firefox110'],
+      target: BUILD_TARGET,
     },
     optimizeDeps: {
       /**

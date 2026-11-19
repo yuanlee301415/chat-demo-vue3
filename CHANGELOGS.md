@@ -684,3 +684,62 @@
 - `reply.ts`（`settleReply`、事件合并）在 `P2-04`；`attachments`/`sessionGroups`/`latestReminder` 在 `P2-05`。
 - `client.ts`/`parseEvent.ts`/`sse.ts` 等网络层尚未移植，`ApiError` 的 `kind` 目前只由测试构造。
 - `getAreaTitle` 的文案接入 UI 后需要再核对展示样式（Phase 3）。
+
+---
+
+## 注释规范工作流（DOC-01–DOC-06）
+
+| 步骤 | 内容 |
+|---|---|
+| `DOC-01` | 规范与基础设施：`AGENTS.md`、计划同步、`eslint-plugin-jsdoc`、字段检查脚本、单一事实来源重构 |
+| `DOC-02` | 服务层注释：`api/*` 与 `chat/*`（函数 + 字段 + `@see`） |
+| `DOC-03` | 状态与组件层：`stores/*`、`i18n`、`iconNames`、`AppIcon` |
+| `DOC-04` | 外壳与构建配置：`app/*`、`vite.config.ts`、`vitest.config.ts` |
+| `DOC-05` | 测试 helper 注释；jsdoc 规则 `warn → error`；`lint` 加 `--max-warnings=0` |
+| `DOC-06` | 门禁：全套命令 + 浏览器冒烟 + grep 验收 |
+
+---
+
+## DOC-01 规范与基础设施
+
+- 状态：已提交（`git log --grep DOC-01`）
+- 开始：2026-11-19 11:06
+
+**计划与目标**
+
+- 目标：把「函数 JSDoc / 字段注释 / 唯一事实来源标注」写成常驻规则 `AGENTS.md`，让 `VUE3_REWRITE_PLAN.md` 与它互相引用而不重复；同时装上自动化工具（`eslint-plugin-jsdoc` + 字段检查脚本）并消除两处字面量重复。
+- 范围：新建 `AGENTS.md`；修改 `VUE3_REWRITE_PLAN.md` §2.2/§2.5/§6/§7/§11；新增 `scripts/check-field-docs.mjs`、`src/services/appNamespace.ts`；修改 `eslint.config.js`、`package.json`、`vite.config.ts`、`src/services/chat/db.ts`、`src/stores/settings.ts`。
+- 不做：不批量补注释（`DOC-02`–`DOC-04`）；不把 jsdoc 规则改为 `error`（`DOC-05`）；不改运行时行为。
+- 验收：
+  1. `AGENTS.md` 存在且 ≤180 行，覆盖速览/工作流/验证/代码约定/注释规范/单一事实来源/环境坑/禁止事项/文档地图。
+  2. `pnpm lint` 无 error（jsdoc 规则先 `warn`），`pnpm docs:fields` 报出 120 条字段注释缺口基线。
+  3. `APP_NAMESPACE` 成为唯一来源，`grep -rn "chat-demo-vue" src` 只命中它；`build.target` 由 `BROWSER_TARGETS` 派生。
+  4. `pnpm type` / `build` 通过。
+
+**关键决策始末**
+
+1. **`AGENTS.md` 是唯一常驻规范（101 行）**：DSH 会把项目 `AGENTS.md` 作为工作区指令加载（安装包里 `dsh-agent-instructions` 的行为），所以它必须短；计划 §2.5 只留指针，不复制正文，避免双份事实来源。
+2. **「单行对象类型」单独报错**：脚本没法给同一行的多个字段逐一注释，因此把 `TextBlock`/`StopDetails`/`MessageVersions` 这类单行对象报为「需展开」，强制改成多行结构；当前共 6 处。
+3. **字段检查器只守底线**：只查「具名类型 + 字段独占一行」，泛型、映射类型、联合类型内联对象可能漏检；这些边界写进脚本头注释，最终仍靠 review。
+4. **jsdoc 规则先 `warn`**：`pnpm lint` 仍以 0 退出，避免 DOC-02–04 的批量补注释期间 CI 变红；`DOC-05` 再收紧为 `error` + `--max-warnings=0`。
+5. **`.vue` 已实测生效**：`ProviderProbe.vue` 的两个函数被 `jsdoc/require-jsdoc` 命中，不需要「排除 .vue + 脚本兜底」的备选方案。
+6. **DOC-01 只做工具与字面量收敛**：`ApiErrorKind`、`Session` 等 `@see` 标注留到 `DOC-02`/`DOC-03`，本步不改运行时行为。
+7. **命名空间重构**：新增 `src/services/appNamespace.ts`（`APP_NAMESPACE`），`DB_NAME` 与 localStorage `PREFIX` 都由它派生；`useThemeMode` 注释里的字面量也改成引用符号。
+8. **浏览器目标重构**：`BROWSER_TARGETS` 派生 `BROWSER_QUERIES`（browserslist）与 `BUILD_TARGET`（`build.target`），消除两处硬编码；构建产物哈希不变，证明是等价重构。
+
+**验证记录**
+
+- `pnpm lint`：0 error / **56 warning**、exit 0；其中 `.vue` 2 条，证明 SFC 规则生效。
+- `pnpm docs:fields`：**120 条**缺口（含 6 处「单行对象类型需展开」），exit 1，作为后续收敛基线。
+- `pnpm type` / `pnpm build`：通过；构建哈希 `index-B33EnnZl.js` 与改造前一致。
+- `pnpm test`：60 个用例 / 10 个文件全过。
+- `pnpm format:check`：通过。
+- `grep -rn "chat-demo-vue" src`：只命中 `src/services/appNamespace.ts`。
+- `AGENTS.md`：101 行；`VUE3_REWRITE_PLAN.md` 已更新 §2.2/§2.5/§6/§7/§11。
+
+**遗留**
+
+- 56 个具名函数、120 处字段（含 6 个待展开的单行类型）在 `DOC-02`–`DOC-05` 收敛。
+- jsdoc 规则仍是 `warn`；`DOC-05` 收紧为 `error` 并给 `lint` 加 `--max-warnings=0`。
+- 字段检查器是启发式，已知漏检边界写在脚本头注释里。
+- `@see` 锚点表已在 `AGENTS.md` §7 落地，但具体标注要到 `DOC-02`/`DOC-03` 才写进源码。

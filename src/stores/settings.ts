@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
+import { APP_NAMESPACE } from '../services/appNamespace'
+
 /** 主题偏好：跟随系统 / 浅色 / 深色。 */
 export type ThemePreference = 'system' | 'light' | 'dark'
 
-/** 与计划 §3.6 一致；旧 `chat-demo:` 前缀的数据不再读取。 */
-const PREFIX = 'chat-demo-vue:'
+/** 与计划 §3.6 一致；前缀由 `APP_NAMESPACE` 派生，旧 `chat-demo:` 的数据不再读取。 */
+const PREFIX = `${APP_NAMESPACE}:`
 
 const KEYS = {
   apiKey: `${PREFIX}api-key`,

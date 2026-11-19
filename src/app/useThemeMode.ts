@@ -12,7 +12,7 @@ const ICONS: Record<ThemePreference, IconName> = {
 }
 
 /**
- * 主题偏好存在 settings store（localStorage `chat-demo-vue:theme`），
+ * 主题偏好存在 settings store（键前缀由 `APP_NAMESPACE` 派生），
  * 这里只负责系统偏好监听与三态循环，避免两处各存一份状态。
  */
 export const useThemeMode = () => {

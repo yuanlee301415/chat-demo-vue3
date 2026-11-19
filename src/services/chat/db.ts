@@ -1,9 +1,10 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 
+import { APP_NAMESPACE } from '../appNamespace'
 import { toSessionSummary, type Session, type SessionSummary } from './types'
 
 /** 新库从 v1 起步，只有会话、摘要、原件；不含导入暂存（导入导出已移除）。 */
-const DB_NAME = 'chat-demo-vue'
+const DB_NAME = APP_NAMESPACE
 const DB_VERSION = 1
 
 /** 文件原件按附件的本地 id 存储，所有引用同一 id 的消息共用一份；用于缩略图、打开查看，以及没有 serverId 时补传。 */

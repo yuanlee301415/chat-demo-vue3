@@ -62,7 +62,7 @@
 
 - Pinia **setup store**，按领域拆分，不把 1000 行逻辑塞回一个 store。
 - 组件用 `storeToRefs` 保持响应性，不解构 store 丢响应性。
-- 非响应式的 `Map`/`Set`/`AbortController` 放在 store 闭包或 `createChatRuntime()` 工厂里，**不写模块级可变全局变量**，保证测试可重置。
+- 非响应式的 `Map`/`Set`/`AbortController` 由 `useRuntimeStore`（`markRaw` 包装 `createChatRuntime()`）持有，session/stream store 共享同一实例；**不写模块级可变全局变量**，测试换 `createPinia()` 即得到干净运行态。
 - 纯业务函数（`reply`/`view`/`branches`/`db`/`markdown`）不 import store、不弹 toast；错误/结果通过返回值或 store state 暴露，由组件决定如何展示。
 - `settings` 作为 Pinia store，但 localStorage 读写集中在 store 的 action 中；纯函数需要配置时通过参数传入，不隐式读全局。
 
@@ -78,6 +78,13 @@
 - 流式更新继续用 rAF 批量 flush；不要每个 delta 触发整棵消息树更新。
 - `MessageList` 用 `v-memo` 或拆分消息组件避免历史消息重绘。
 - Markdown 保留“按渲染耗时 ×2、上限 2s”的节流；`sources` 数组做身份比较，避免流式重解析。
+
+### 2.5 注释与单一事实来源
+
+- 所有具名函数必须有 JSDoc：一句话职责 / 契约，必要时补 `@param` / `@returns` / `@throws`；**JSDoc 内不写 TS 类型**。
+- 导出的 `interface` / `type` 对象字面量逐字段注释；字段缺口用 `pnpm docs:fields` 检查。
+- 有唯一来源的数据用来源类型标注，或用 `@see` 指回来源；注释里不复制字面量值。
+- 细则（反例、单一事实来源清单、环境坑）以根目录 `AGENTS.md` 为准，本节不重复。
 
 ## 3. 关键实现
 
@@ -296,6 +303,8 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 
 每个 Phase 内拆成带编号的步骤（§5.3），阶段末固定一步 `P<n>-99` 执行门禁。Phase 0/1 的步骤清单直接定在此处；Phase 2–5 在各自开始时按同样粒度补登到 `CHANGELOGS.md`。
 
+**跨阶段工作流**：注释与单一事实来源规范（`DOC-01`–`DOC-06`）在 Phase 1 收尾之后执行，细则见 `AGENTS.md` §6–§7，步骤记录见 `CHANGELOGS.md`；完成后继续 Phase 2 的 `P2-04`。
+
 ### Phase 0：Vite/NaiveUI/图标验证（2–3 天）✅ 已完成（`P0-00`–`P0-05`；门禁并入 `P1-99`）
 
 - **P0-00** 仓库基线：`.editorconfig`、`.gitignore`、`README.md`、本计划、`CHANGELOGS.md` 模板（首次提交）。
@@ -368,6 +377,7 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 5. bundle 不含 React、zustand、Rspack、fflate；Mermaid/Prism/KaTeX 仍按需加载。
 6. 代码符合第 2 节 Vue 最佳实践：无仿 React API 包装器、无 `any`、无模块级可变状态、组件使用 `v-model`/插槽/组合式函数。
 7. 流程符合第 5 节：每个步骤在 `CHANGELOGS.md` 有完整条目（计划 + 决策 + 验证），且有一条 subject 为 `序号 + 目标` 的 commit 与之一一对应；`git log --oneline` 的序号序列与 `CHANGELOGS.md` 一致，无「无条目提交」。
+8. 注释规范：`pnpm lint`（`--max-warnings=0`）0 问题、`pnpm docs:fields` 0 缺口；具名函数与导出类型字段无缺注释。
 
 **每步的最低检查**（写进该步骤的验收项，不替代阶段门禁）：
 
@@ -417,3 +427,4 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 
 - 2026-11-18 初稿：Vue 3 + TS + Vite + NaiveUI 重构方案（§0–§9 原编号）。
 - 2026-11-18 增补：加入 §5 每步工作流（`CHANGELOGS.md` 记录 + 按序号提交 Git）；`CHANGELOGS.md` 与提交规范、步骤编号 `P<n>-<nn>`、失败处理；§6 补 Phase 0/1 具体步骤清单与 `P<n>-99` 门禁步骤；§7 增加流程验收与每步最低检查；原 §5–§9 顺延为 §6–§10。
+- 2026-11-19 增补：新增 §2.5 注释与单一事实来源；§2.2 运行态改为 `useRuntimeStore`；§6 增加 `DOC-01`–`DOC-06` 跨阶段工作流；§7 验收增加注释规范；规范细则落在根目录 `AGENTS.md`。
