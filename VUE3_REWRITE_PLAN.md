@@ -81,8 +81,10 @@
 
 ### 2.5 注释与单一事实来源
 
-- 所有具名函数必须有 JSDoc：一句话职责 / 契约，必要时补 `@param` / `@returns` / `@throws`；**JSDoc 内不写 TS 类型**。
-- 导出的 `interface` / `type` 对象字面量逐字段注释；字段缺口用 `pnpm docs:fields` 检查。
+- **适用范围**：`src/**`，排除测试文件（`*.test.ts` / `*.spec.ts`）；配置与脚本不在要求内。
+- 注释是**约定，不接 ESLint 规则**，`pnpm lint` 不会因缺注释失败；`pnpm docs:fields` 只作可选手工审计。
+- 具名函数写一句话职责 / 契约，必要时补 `@param` / `@returns` / `@throws`；**JSDoc 内不写 TS 类型**。
+- 导出的 `interface` / `type` 对象字面量逐字段注释。
 - 有唯一来源的数据用来源类型标注，或用 `@see` 指回来源；注释里不复制字面量值。
 - 细则（反例、单一事实来源清单、环境坑）以根目录 `AGENTS.md` 为准，本节不重复。
 
@@ -377,7 +379,7 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 5. bundle 不含 React、zustand、Rspack、fflate；Mermaid/Prism/KaTeX 仍按需加载。
 6. 代码符合第 2 节 Vue 最佳实践：无仿 React API 包装器、无 `any`、无模块级可变状态、组件使用 `v-model`/插槽/组合式函数。
 7. 流程符合第 5 节：每个步骤在 `CHANGELOGS.md` 有完整条目（计划 + 决策 + 验证），且有一条 subject 为 `序号 + 目标` 的 commit 与之一一对应；`git log --oneline` 的序号序列与 `CHANGELOGS.md` 一致，无「无条目提交」。
-8. 注释规范：`pnpm lint`（`--max-warnings=0`）0 问题、`pnpm docs:fields` 0 缺口；具名函数与导出类型字段无缺注释。
+8. 注释规范（**约定，不参与 lint/CI 门禁**）：`src/**`（排除测试文件）的具名函数与导出类型字段有 JSDoc；可选 `pnpm docs:fields` 审计为 0。
 
 **每步的最低检查**（写进该步骤的验收项，不替代阶段门禁）：
 
@@ -428,3 +430,4 @@ P1-02 tsconfig / vue-tsc / ESLint / Vitest 配置
 - 2026-11-18 初稿：Vue 3 + TS + Vite + NaiveUI 重构方案（§0–§9 原编号）。
 - 2026-11-18 增补：加入 §5 每步工作流（`CHANGELOGS.md` 记录 + 按序号提交 Git）；`CHANGELOGS.md` 与提交规范、步骤编号 `P<n>-<nn>`、失败处理；§6 补 Phase 0/1 具体步骤清单与 `P<n>-99` 门禁步骤；§7 增加流程验收与每步最低检查；原 §5–§9 顺延为 §6–§10。
 - 2026-11-19 增补：新增 §2.5 注释与单一事实来源；§2.2 运行态改为 `useRuntimeStore`；§6 增加 `DOC-01`–`DOC-06` 跨阶段工作流；§7 验收增加注释规范；规范细则落在根目录 `AGENTS.md`。
+- 2026-11-19 修订：注释规范降级为约定（移除 `eslint-plugin-jsdoc` 与 `--max-warnings=0`），只覆盖 `src/**` 且排除测试文件；§2.5 与 §7 第 8 条同步。

@@ -929,3 +929,42 @@
 - 提交钩子 / CI 串联留到 Phase 5（当前由 `pnpm lint` 承担门禁）。
 - 字段检查器仍是启发式（联合类型内联对象可能漏检）。
 - 注释工作流结束后回到 `P2-04`（stream store + reply 移植）。
+
+---
+
+## DOC-07 注释规范改为约定（移除 ESLint 强制）
+
+- 状态：已提交（`git log --grep DOC-07`）
+- 开始：2026-11-19 13:35
+
+**计划与目标**
+
+- 目标：按用户要求把注释从「ESLint 强制」降级为「约定」——移除 `eslint-plugin-jsdoc` 及其规则与 `--max-warnings=0`；注释要求只覆盖 `src/**` 且排除测试文件；同步 `AGENTS.md` 与计划里的验收口径。
+- 范围：`package.json`、`eslint.config.js`、`scripts/check-field-docs.mjs`（仅改范围说明）、`AGENTS.md` §6、`VUE3_REWRITE_PLAN.md` §2.5/§7。
+- 不做：不删除已写好的注释（测试 helper 的注释保留，不再是要求但无害）；不改其他 ESLint 规则；不删 `docs:fields` 脚本，只把它降级为可选手工审计。
+- 验收：
+  1. `package.json` 不再有 `eslint-plugin-jsdoc`；`eslint.config.js` 不再有 jsdoc 规则；`lint` 回到 `eslint . --cache`。
+  2. `pnpm lint` / `type` / `format:check` / `test` / `build` 全绿。
+  3. `AGENTS.md` §6 明确「约定、不做 ESLint 检查、只针对 `src` 且排除测试」；计划 §2.5/§7 口径一致。
+  4. `pnpm docs:fields` 仍为 0（现有注释未回退）。
+
+**关键决策始末**
+
+1. **彻底移除 `eslint-plugin-jsdoc`**：依赖、`app/jsdoc` 配置块与 `lint` 的 `--max-warnings=0` 一并删除，`lint` 回到 `eslint . --cache`；缺注释不再导致构建失败。
+2. **注释范围收窄**：只要求 `src/**` 且排除 `*.test.ts`/`*.spec.ts`；配置文件、脚本、测试都不在要求内。测试 helper 里已经写好的注释保留，但不再是要求。
+3. **`docs:fields` 保留但降级**：脚本头与 `AGENTS.md` 都标明它是「可选手工审计，不是门禁」，范围同步排除测试文件（新增 `.spec.ts`）。
+4. **计划同步**：§2.5 与 §7 第 8 条里「`lint --max-warnings=0` / `docs:fields` 门禁」的表述一并改为「约定，不参与 lint/CI」，避免文档与工具冲突；§11 补修订记录。
+5. **不删除已有注释**：349 个 JSDoc 块与 18 个 `@see` 仍然有效，只是不再由工具强制。
+
+**验证记录**
+
+- `pnpm list eslint-plugin-jsdoc`：**0 packages**（依赖已移除）。
+- `pnpm lint`：exit 0，输出无 jsdoc 规则（`eslint . --cache`）。
+- `pnpm type` / `format:check` / `test`（60 例）/ `build` / `docs:fields`：全部 exit 0。
+- 配置检查：`eslint.config.js` 无 jsdoc 引用与规则块；`package.json` 的 `lint` 已恢复为 `eslint . --cache`。
+
+**遗留**
+
+- `docs:fields` 只是自查工具，不接 CI。
+- 测试 helper 的注释保留，但不再纳入审计。
+- 回到 `P2-04`（stream store + reply 移植）。

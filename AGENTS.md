@@ -47,19 +47,20 @@ pnpm type && pnpm lint && pnpm format:check && pnpm test && pnpm build
 - 文案：固定中文，只从 `t()` 取；缺参保留占位符。`.vue` 里除 `AppIcon` 与临时页外禁止 `v-html`。
 - 不引计划外依赖；能复用现有模块就不新造。
 
-## 6. 注释规范（硬要求）
+## 6. 注释规范（约定，不做 ESLint 检查）
 
-- **函数**：所有具名函数（函数声明、`const fn = () => {}`、class 方法）都要 JSDoc，首行一句话写职责 / 契约。
+**适用范围**：`src/**`，排除测试文件（`*.test.ts` / `*.spec.ts`）；配置文件、脚本与测试不在要求内。注释是团队约定，**不接 ESLint 规则，也不会让 `pnpm lint` 失败**。
+
+- **函数**：`src/**` 里的具名函数（函数声明、`const fn = () => {}`、class 方法）加 JSDoc，首行一句话写职责 / 契约。
   - `@param` 只在含义或约束不直观时写，一旦写就给描述；`@returns` 只在返回含义不直观时写；`@throws` 只在会抛可预期错误时写。
   - **禁止在 JSDoc 里写类型**（`{string}`、`@type`）——TS 是唯一类型来源。
-  - 由 `jsdoc/*` ESLint 规则强制；`.vue` 已实测生效（`<script setup>` 内的具名函数会被检查）。
 - **字段**：导出 `interface` / `type` 对象字面量的每个字段一行 `/** ... */`，写单位、取值范围或来源；判别式字段可极简但不能省。
-  - 由 `pnpm docs:fields` 守门（启发式，只查导出类型里的单行字段）。
+  - 可选用 `pnpm docs:fields` 做手工审计（启发式，只查导出类型的单行字段）；它只是自查工具，不是门禁。
 - **唯一事实来源**：
   - 优先用类型约束：`Record<IconName, string>`、`Record<ThemePreference, …>`、`Pick<Session, …>`、`TranslationKey`。
   - 其次 `@see <符号 | 文件 | CHANGELOGS 步骤>`。
   - **注释里禁止复制字面量值**（命名空间、端口、上限、版本号），用符号或 `@see` 指向来源。
-- 测试：`it(...)` 回调不要求 JSDoc；测试内具名 helper 要求。
+- 测试文件（`*.test.ts` / `*.spec.ts`）不在要求内：`it(...)` 回调与测试内的 helper 都不要求 JSDoc，写了也不参与审计。
 - 反例：逐行翻译实现、给 `computed` getter 写 JSDoc、字段注释写「id 的 id」。
 
 ## 7. 唯一事实来源清单

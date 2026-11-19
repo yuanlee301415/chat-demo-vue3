@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * 字段注释守门：检查具名 `interface` / `type` 对象字段是否有紧邻的 `/** ... *\/`。
+ * 字段注释审计（可选，不是门禁）：检查具名 `interface` / `type` 对象字段是否有紧邻的 `/** ... *\/`。
  *
+ * 范围：`src/**`，排除测试文件（`*.test.ts` / `*.spec.ts`）。
  * 启发式边界（已知）：
  * - 只检查「字段单独成行」的写法；单行对象类型无法逐字段注释，单独报出来要求展开。
  * - 泛型、映射类型、索引签名、联合类型里的内联对象可能漏检。
@@ -14,12 +15,12 @@ import path from 'node:path'
 
 const ROOT = path.resolve(process.cwd(), 'src')
 
-/** 递归收集待检查文件；测试文件不参与字段检查。 */
+/** 递归收集待检查文件；测试文件不参与审计。 */
 const collect = (dir) =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) return collect(full)
-    if (!/\.ts$/.test(entry.name) || /\.test\.ts$/.test(entry.name)) return []
+    if (!/\.ts$/.test(entry.name) || /\.(test|spec)\.ts$/.test(entry.name)) return []
     return [full]
   })
 
