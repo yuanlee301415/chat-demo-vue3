@@ -1331,39 +1331,6 @@
 
 **关键决策始末**
 
-1. **解析依赖沿用旧项目版本**：`mdast-util-from-markdown@2.0.3`、`mdast-util-gfm@3.1.0`、`mdast-util-math@3.0.0`、`mdast-util-find-and-replace@3.0.2`、`micromark-extension-gfm@3.0.0`、`micromark-extension-llm-math@3.1.0`，保证同一段 Markdown 产出的 AST 与旧版一致。`@types/mdast` 钉在 `4.0.4`：先装 `4.0.3` 时依赖链另带一份 `4.0.4`，两份 `Root` 类型互不兼容，TS 直接报错。
-2. **AST 用 render function 递归**：块级与行内节点互相嵌套，拆成多个递归 `.vue` 会引入自引用组件和大量插槽转发；`MarkdownAstRenderer.ts` 用 `h()` 直接递归，叶子节点仍是独立 SFC（`CodeBlock` / `MathFormula` / `MermaidDiagram` / `MarkdownLink` / `CitationLink`），职责边界不变。
-3. **组件改名 `MarkdownContent` / `MarkdownLink`**：`vue/multi-word-component-names` 不接受单词组件名，沿用 P3-01 `Welcome → WelcomeView` 的处理；计划 §4 里的 `Markdown.vue` / `Link.vue` 名称据此调整，结构不变。
-4. **设计令牌整体搬 `app/theme.css`**：Markdown、代码块、时间线的颜色全部走 `--dsw-*` 令牌；`App.vue` 把 `dark` / `light` 类与 `data-ds-dark-theme` 同步到 body（`highlight.css` 依赖前两个类，令牌依赖第三个属性），NaiveUI 仍由 `darkTheme` 控制。
-5. **`v-html` 只豁免三个渲染器**：Prism 高亮结果、KaTeX 的 `renderToString`、Mermaid 的 SVG 分别写回 DOM，逐文件豁免并注明来源；Mermaid 保持 `securityLevel: 'strict'` 且转义 `<img>` / `<image>`，Markdown 里的普通 HTML 按文本渲染，链接与图片地址都过 `sanitizeUrl`。
-6. **流式性能两条约束**：`useReplyView` 在来源元数据未变时复用旧数组，避免每帧文本增量都让 `toMdAst` 重解析引用；`useThrottleMarkdownRender` 用 `flush: 'post'` 测量提交后的渲染耗时（对应旧版 `useEffect([output])`），按耗时 ×2、上限 2s 节流。
-7. **`AssistantMessage` 只做组合**：时间线交给 `ReplyArea`，正文与模板答复用 `MarkdownContent`，`describeReply` 统一错误、拒绝与模板文案；用户消息保持纯文本（与旧版一致）。
-8. **偏差**：旧版 `Markdown` 的 `cacheKey` / `onUpdate` 不移植——Vue 侧按依赖失效，不需要强制重挂；滚动跟随仍由 `MessageList` 的既有 watch 负责，本步未改。搜索行点击打开面板、「查看全部」与底部来源汇总留 `P4-02`；错误提示里的「更换 API Key / 充值」留 `P4-03`。
-9. **包体**：mdast 解析器进主包，入口 `548.69 kB → 681.76 kB`（gzip `174.01 → 213.21 kB`）；Mermaid / KaTeX / Prism 语言包仍是独立 chunk，Phase 5 再按需拆解析器。
-
-**验证记录**
-
-- `pnpm type` / `lint` / `format:check` / `test` / `build` / `docs:fields` 全部 exit 0；`test` 135 例（新增 `parse` 6 例、`url` 3 例）。
-- `pnpm build`：3922 modules；入口 `681.76 kB`（gzip `213.21 kB`）、CSS `40.51 kB`；KaTeX / Mermaid / Prism 语言包各自分块。
-- 浏览器（dev 8097，预置一条含思考、搜索、引用与完整 Markdown 的会话）：
-  - 正文：`h1` 1 个、表格 1 个、任务项 2 个、引用块 1 个、分隔线 1 个，示例链接 `https://example.com/` 可点；行内代码 1 个。
-  - 代码块：语言名 `ts`、Prism token 10 个、「复制」按钮存在；Mermaid 块默认 SVG，点「代码」切到 `graph TD` 原文、点「图表」切回。
-  - 公式：行内 `E = mc^2` 与块级 `1/2` 共 2 个 KaTeX 节点。
-  - 时间线：标题「已思考（用时 2 秒）」、思考文本「先思考一下 重点。」、搜索行「已阅读 1 个网页」、来源缩略图 1 个。
-  - 引用：角标文本 `1`，`role="link"`、`tabindex="0"`。
-  - 主题：浅色时 body 无 `dark` / `data-ds-dark-theme`，正文 `rgb(15, 17, 21)`；深色时有标记、`--dsw-alias-label-primary` 为 `#f9fafb`、正文 `rgb(249, 250, 251)`，Mermaid 重绘、代码高亮保留。
-  - 控制台 **0 报错 / 0 警告**；截图存临时目录（`dsh-p4-01-*.png`），未入库。
-
-**遗留**
-
-- 入口 chunk `681.76 kB` 超过 Vite 警告阈值，Phase 5 拆包（mdast 解析器懒加载或按需加载）。
-- 搜索面板与来源卡片悬浮预览在 `P4-02`：当前引用角标直接新标签打开，搜索行不可点击，底部没有来源汇总。
-- 错误提示里的「更换 API Key / 充值」在 `P4-03`：`describeReply` 已接入，但还没有设置弹窗可打开。
-- 计划 §4 的目标文件名与实现不一致（`MarkdownContent.vue` / `MarkdownLink.vue`，新增 `PageLink.vue`），`P4-99` 统一同步。
-- 公式 / 语言包的「加载失败」路径与剪贴板失败 toast 未在无头环境构造（代码有 fallback），流式节流的极端耗时未压测。
-
-**关键决策始末**
-
 1. **解析器沿用 mdast/micromark 管道**：旧版就是 `micromark → mdast → VNode`，照搬才能满足「输出与旧版一致」；新增 6 个单职责包（`mdast-util-{from-markdown,gfm,math,find-and-replace}`、`micromark-extension-{gfm,llm-math}`）与 1 个类型包，版本与旧项目对齐。备选：`markdown-it` 需要自写 citation/删除线/脚注降级逻辑，反而引入新差异。
 2. **渲染器用 `defineComponent` + `h()`**：mdast 是递归树，模板无法表达；沿用旧 `MarkdownAstRenderer` 的节点映射。`sources`/`disableLink` 在解析期一次处理完，渲染期不再读原文。
 3. **`v-html` 只给 Prism/KaTeX/Mermaid 三处定点豁免**：Prism 先转义源码再高亮，KaTeX 默认不信任命令，Mermaid 用 `securityLevel: 'strict'` 且转义图片标签；其余 Markdown HTML 按文本渲染（`ds-markdown-html`），与旧版一致。
@@ -1392,4 +1359,39 @@
 - 流式下的 Markdown 节流与「公式/代码块写到一半」的保留逻辑只做了代码移植，未在真实 SSE 流下逐帧验证（流式框架由 `P3-05` 覆盖）。
 - 入口 chunk 681.76 kB 超 Vite 告警阈值，Phase 5 统一拆包。
 - 用户消息气泡仍为纯文本（与旧版一致）。
+
+---
+
+## P4-01a 合并 P4-01 CHANGELOG 重复段落
+
+- 状态：已提交（`git log --grep P4-01a`）
+- 开始：2026-11-19 16:22
+
+**计划与目标**
+
+- 目标：`P4-01` 提交里因并发编辑出现两套「关键决策始末 / 验证记录 / 遗留」，删掉先写入的一套，只保留覆盖更全、与提交信息一致的一套；功能与验证结论不变。
+- 范围：仅 `CHANGELOGS.md`。
+- 不做：不改代码、不重跑 `P4-01` 的验证、不改写 `P4-01` 的提交历史。
+- 验收：
+  1. `P4-01` 条目下三个小节各只剩一份。
+  2. `git status` 只有本文件；提交后工作区干净。
+
+**关键决策始末**
+
+1. **保留后写入的一套**：两套记录的是同一批决策，后一套的验证覆盖坏公式回退、未知语言、脚注/图片、3 个代码块与浅深色，证据更全；先写入的一套随之删除。
+   - 备选：手工合并两套——重复内容多，合并只会再引入一次抄写误差。
+2. **开 `P4-01a` 而不是 `amend`**：`P4-01` 已提交，按 §5.4 不改写历史，用修复序号单独记录。
+3. **不重跑质量门**：只改 Markdown 文档，没有代码变更。
+
+**验证记录**
+
+- 删除后核对：`P4-01` 下「关键决策始末」「验证记录」「遗留」各 1 处，`git diff` 只少一套重复段落。
+- 提交后 `git status` 干净；`git log --grep P4-01a` 可反查。
+
+**遗留**
+
+- 无。
+
+---
+
 
