@@ -1250,3 +1250,45 @@
 
 ---
 
+## P3-99 Phase 3 门禁
+
+- 状态：已提交（`git log --grep P3-99`）
+- 开始：2026-11-19 15:35
+
+**计划与目标**
+
+- 目标：按计划 Phase 3「手工走通聊天流程」做收尾验证——命令套件、串起来的聊天流程冒烟（发送 + 附件 → 刷新恢复 → 删除）、主题切换，并与 §7 smoke checklist 对账。
+- 范围：只做验证与记录；不改功能。
+- 不做：Markdown/搜索/设置（Phase 4）；preview 与 Pages（Phase 5）；真实 DeepSeek 接口联调。
+- 验收：
+  1. `type|lint|format:check|test|build|docs:fields` 全部 exit 0。
+  2. 串行冒烟：附件拖拽 + 发送 → 回答完成、草稿清空、用户消息含附件；刷新后会话仍在且内容可读；删除会话回欢迎页。
+  3. 主题按钮循环并写入 localStorage。
+  4. 控制台 0 报错；bundle 无禁用依赖。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `test` / `build` / `docs:fields`：**全部 exit 0**。
+- `pnpm test`：126 个用例 / 21 个文件。
+- `pnpm build`：2767 modules，入口 548.69 kB（gzip 174.01 kB），CSS 6.15 kB；构建提示 chunk > 500 kB（UI 组件接入后的正常增长，Phase 5 再拆包）。
+- Bundle 扫描：无 `react-dom` / `zustand` / `fflate` / `rspack`。
+- 浏览器（dev 8097）串行冒烟：
+  - 主题按钮：`localStorage` 从 null → `light`；
+  - 拖拽 `note.txt` + 输入「带附件的问题」发送：1 条会话、回答「你好，我是回复」、用户消息含「note.txt · 5 B」、草稿附件清空；
+  - 刷新：会话仍在；打开后用户问题与回答都能读回（数据恢复）；
+  - 菜单删除并确认：列表清空、回到欢迎页；
+  - 控制台 **0 报错 / 0 警告**。截图存临时目录（`dsh-p3-99.png`），未入库。
+
+**与计划 §7 smoke checklist 对账**
+
+- 已覆盖（本步或前序步骤冒烟）：首次打开、发送、停止（P3-05）、重新生成/编辑/续写/分支切换（P3-06）、错误重试（P3-08）、附件拖拽/失败/重试（P3-07）、主题切换、刷新恢复、删除会话、dev/build。
+- 未覆盖（有意留到后续阶段）：设置 API Key 的完整弹窗流程（Phase 4 才有设置面板）、位置设置、删除全部、preview/Pages（Phase 5）、真实接口联调（需要 Key/外网）、思考/搜索/引用/Markdown（Phase 4）。
+
+**遗留**
+
+- 入口 chunk 548.69 kB 超过 Vite 警告阈值，Phase 5 做代码分割（或按路由/组件懒加载）后再复核。
+- Phase 3 的自动化冒烟都是「页内 fetch 替身」，真实 API 行为仍需在 Phase 4 用真实 Key 手工联调一次。
+- 下一步进入 Phase 4：Markdown + AST 渲染、代码块/公式/Mermaid、ReplyArea 时间线与引用、搜索面板、设置弹窗。
+
+---
+
