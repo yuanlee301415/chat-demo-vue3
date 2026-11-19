@@ -3,6 +3,8 @@ import { computed } from 'vue'
 
 import { useI18n } from '../../i18n'
 import type { Session } from '../../services/chat/types'
+import { useStreamStore } from '../../stores/stream'
+import MessageList from '../messages/MessageList.vue'
 
 const props = defineProps<{
   /** 已加载的会话详情 */
@@ -10,6 +12,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const stream = useStreamStore()
 
 /** 标题为空时回退占位文案；重命名后随 store 即时更新。 */
 const title = computed(() => props.session.title || t('untitledChat'))
@@ -20,9 +23,7 @@ const title = computed(() => props.session.title || t('untitledChat'))
     <header class="session__header">
       <h1 class="session__title">{{ title }}</h1>
     </header>
-    <div class="session__body">
-      <p class="session__hint">消息列表将在 P3-03 接入</p>
-    </div>
+    <MessageList :session="session" :streaming="stream.isStreaming(session.id)" />
   </section>
 </template>
 
@@ -50,20 +51,5 @@ const title = computed(() => props.session.title || t('untitledChat'))
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.session__body {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  overflow: auto;
-}
-
-.session__hint {
-  margin: 0;
-  color: #8a8f99;
-  font-size: 13px;
 }
 </style>
