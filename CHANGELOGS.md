@@ -646,3 +646,41 @@
 - 「加载时收尾 pending/streaming」「删除前排空流」等 `P2-04` 接入 stream store 后补。
 - `retrySaveSessions`（保存失败后的全局重试）等接 UI 时加。
 - 会话列表 UI 与「删除全部对话」编排分别在 Phase 3 与 `P2-05`。
+
+---
+
+## P2-03 纯逻辑移植：branches / view / describe / errors
+
+- 状态：已提交（`git log --grep P2-03`）
+- 开始：2026-11-19 10:10
+
+**计划与目标**
+
+- 目标：把四个不依赖 DOM 的模块搬过来并补单测——消息树与分支（`branches`）、回复时间线与引用（`view`）、错误/拒绝的展示文案（`describe`）、HTTP 状态与上传错误的分类（`errors`）；顺带把 `ApiError` 从 `client.ts` 拆成独立模块作为 `errors` 的依赖。
+- 范围：`src/services/api/ApiError.ts`、`src/services/api/errors.ts`、`src/services/chat/branches.ts`、`describe.ts`、`view.ts`，以及四个对应测试。
+- 不做：不移植 `reply.ts`（`P2-04`）、`attachments.ts`/`sessionGroups.ts`/`latestReminder.ts`（归入 `P2-05`）；不接 UI。
+- 验收：
+  1. 四个模块行为与原文一致，仅两处适配：`translate` → `t`、`ApiError` 改为从新模块导入。
+  2. 单测覆盖：线性规范化 / 可见路径 / 追加分支 / 版本切换 / 版本映射复用；时间线步骤与引用编号；错误分类与重试判定；回复提示的状态映射。
+  3. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **`ApiError` 从 `client.ts` 拆到 `api/ApiError.ts`**：`errors.ts` 需要它，而 `client.ts` 还包含网络/流式逻辑（后续步骤才搬）。类实现与原文一致，只把 `translate` 换成 `t`。
+2. **`translate` → `t`**：固定中文后 i18n 只导出 `t`，`describe.ts`/`view.ts` 的调用一处替换；`isTranslationKey` 保留，历史数据的未知文案仍要回退原文。
+3. **`view.ts` 内部类 `SourceRegistry` 原样保留**：它是 `buildReplyView` 内部的累加器，不对外暴露，每次调用新建；纯函数语义不变。
+4. **`branches.ts` 除 import 外零改动**：消息树逻辑与原实现逐字一致，后续 Phase 3 可以直接对照。
+5. **测试只测公开行为**：`branches` 5 组、`view` 6 组、`describe` 6 组、`errors` 6 组，共 35 个新用例。
+6. **`sessionGroups`/`latestReminder`/`attachments` 归入 `P2-05`**：它们更靠近列表与上传，和 uploads store 一起搬更顺。
+
+**验证记录**
+
+- `pnpm test`：60 个用例 / 10 个文件全过，新增 35 个——branches 10、view 7、describe 6、errors 12。
+- 覆盖点：线性规范化与分支原样返回、可见路径、追加分支（含新根）、版本切换与非法版本、版本映射复用（同一 Map 实例）；思考/搜索/引用/模板的视图推导与 `getAreaTitle` 三态；401/402/429/5xx/网络/补传/拒绝/模板的提示；状态码分类、可重试判定、`file_ids` 三类失效、配额与解析失败识别。
+- `pnpm type` / `lint` / `format:check` / `build` 全绿；产物哈希与 `P2-02` 完全一致（`index-B33EnnZl.js`），说明这些模块尚未被界面引用、无运行时回归。
+
+**遗留**
+
+- `reply.ts`（`settleReply`、事件合并）在 `P2-04`；`attachments`/`sessionGroups`/`latestReminder` 在 `P2-05`。
+- `client.ts`/`parseEvent.ts`/`sse.ts` 等网络层尚未移植，`ApiError` 的 `kind` 目前只由测试构造。
+- `getAreaTitle` 的文案接入 UI 后需要再核对展示样式（Phase 3）。
