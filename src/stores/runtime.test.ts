@@ -20,7 +20,7 @@ describe('createChatRuntime', () => {
     runtime.unsavedSessions.add('s1')
     runtime.pendingFiles.set('s1', [])
     runtime.deletingSessions.add('s1')
-    runtime.streaming.set('s1', new AbortController())
+    runtime.streaming.set('s1', { controller: new AbortController(), done: Promise.resolve() })
     runtime.streamFlushes.set('s1', () => {})
     runtime.titleRequests.add(new AbortController())
     runtime.sessionLoads.set('s1', { promise: Promise.resolve() })

@@ -760,3 +760,43 @@
 
 ---
 
+## P2-04c stream store + session store 集成
+
+- 状态：已提交（`git log --grep P2-04c`）
+- 开始：2026-11-19 14:04
+
+**计划与目标**
+
+- 目标：把发送、停止、重新生成、编辑、续写、版本切换与自动标题接到 Pinia，并让 session store 在加载与删除时处理在途流。
+- 范围：`src/stores/stream.ts`、`src/services/chat/interrupted.ts`、`src/utils/id.ts`、`runtime.ts`（流句柄）、`session.ts`（加载收尾、删除等待）、对应测试。
+- 不做：附件补传/上传（`P2-05`）；草稿与上传 store；UI（Phase 3）；`latestReminder` 生成（`P2-05`）。
+- 验收：
+  1. 发送（含标题）、错误、停止、重新生成、编辑、续写都有测试。
+  2. 加载时把 `pending`/`streaming` 收尾为 `stopped`；删除会话先停下流并等落盘。
+  3. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **`runtime.streaming` 改为 `StreamHandle { controller, done }`**：删除会话要等流把最终状态落盘后再删库，只有 controller 无法等待；`done` 在流的 `finally` 里 resolve。
+2. **会话写入仍归 session store**：stream store 只通过 `sessionCache` / `sessions` 赋值与 `persist` 落盘，不扩大 session store 的 action 面，避免两套写入入口。
+3. **`updateReply` 必须保留分支指针**：首版整对象替换导致 `parentId` / `selectedChildId` 丢失（重新生成后兄弟版本判断失败），测试暴露后按原实现只替换内容并保留两个指针。
+4. **附件暂不补传**：`send` 接受 `{ text, files }`，files 只做元数据落库；serverId 补齐、上传进度与 `upload` 错误重试留给 `P2-05`，避免在没有上传 store 时先造临时 API。
+5. **`latestReminder` 暂不生成**：`toRequestMessages` 已支持该参数，`P2-05` 接入 `createLatestReminder` 后再填。
+6. **标题逻辑保留**：仅当会话标题为空时带 `title: { enabled: true }`，`message_delta.title` 写回并停止后续标题请求。
+7. **流式 flush 用 rAF，测试环境回退 `setTimeout(16)`**：Node 里没有 `requestAnimationFrame`，直接调用会 ReferenceError。
+
+**验证记录**
+
+- `pnpm test`：**106 个用例 / 16 个文件**全过，新增 stream 6、interrupted 2。
+- stream 覆盖：新建会话 + 标题 + 文本块；请求失败记为 `error` 并保留分类；`stop` 后 `stopped`；重新生成新增兄弟版本；编辑新增同父提问；续写追加到原回答。
+- session 集成：`ensureLoaded` 对 `pending`/`streaming` 调 `settleInterrupted` 并落盘；`remove` 先 `abort()` 再 `await done` 后删库。
+- `pnpm type` / `lint` / `format:check` / `build` / `docs:fields` 全绿；bundle 体积保持 425.88 kB（尚未被界面引用）。
+
+**遗留**
+
+- 附件补传、上传进度与 `upload` 错误重试在 `P2-05`。
+- `latestReminder` 生成在 `P2-05`。
+- UI 接入与流式渲染在 Phase 3。
+
+---
+

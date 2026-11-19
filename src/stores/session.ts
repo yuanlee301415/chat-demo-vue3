@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
 import { deleteSession as dbDeleteSession, loadSession, loadSessionSummaries, renameSession as dbRenameSession, reportStorageError, saveSession } from '../services/chat/db'
+import { settleInterrupted } from '../services/chat/interrupted'
 import { toSessionSummary, type Session, type SessionSummary } from '../services/chat/types'
 import { useRuntimeStore } from './runtime'
 
@@ -142,9 +143,14 @@ export const useSessionStore = defineStore('session', () => {
           throw new Error(`Session ${id} is missing from local storage`)
         }
         // 读取期间可能已在列表重命名，保留最新元数据，不能让旧读取覆盖它。
-        const session = sameSummary(stored, summary) ? stored : { ...stored, ...summary }
+        const loaded = sameSummary(stored, summary) ? stored : { ...stored, ...summary }
+        // 上次关闭页面时未完成的回复，重新加载时按「已停止」收尾并落盘。
+        const session = settleInterrupted(loaded)
         touch(id)
         sessionCache.value = { ...sessionCache.value, [id]: session }
+        if (session !== loaded) {
+          persist(id)
+        }
         trimSessionCache()
       } catch (error) {
         if (runtime.sessionLoads.get(id) === load) {
@@ -207,7 +213,10 @@ export const useSessionStore = defineStore('session', () => {
     }
     runtime.deletingSessions.add(id)
     try {
-      runtime.streaming.get(id)?.abort()
+      // 先生成中的流停下来并等它落盘，再删库，避免删完又被在途写入。
+      const handle = runtime.streaming.get(id)
+      handle?.controller.abort()
+      await handle?.done
       await dbDeleteSession(id)
       runtime.sessionLoads.delete(id)
       runtime.sessionAccess.delete(id)

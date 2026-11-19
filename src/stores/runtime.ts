@@ -3,6 +3,14 @@ import { markRaw } from 'vue'
 
 import type { StoredFile } from '../services/chat/db'
 
+/** 一次流式生成的句柄：中止用 controller，收尾（含落盘）用 done。 */
+export interface StreamHandle {
+  /** 中止本次生成 */
+  controller: AbortController
+  /** 流结束且状态落盘后 resolve */
+  done: Promise<void>
+}
+
 /**
  * 非响应式的运行态：Map/Set/AbortController 这类对象不该进 Pinia 的响应式系统，
  * 也不该做成模块级全局（否则测试之间会串状态）。每个 Pinia 实例创建一份，由 session/stream store 共享。
@@ -18,8 +26,8 @@ export interface ChatRuntime {
   pendingFiles: Map<string, StoredFile[]>
   /** 正在删除的会话，避免并发操作 */
   deletingSessions: Set<string>
-  /** 每个会话的流控制器；AbortController 不能放进响应式状态 */
-  streaming: Map<string, AbortController>
+  /** 每个会话的流句柄；AbortController 不能放进响应式状态 */
+  streaming: Map<string, StreamHandle>
   /** 每个会话注册的流式 flush 回调 */
   streamFlushes: Map<string, () => void>
   /** 进行中的自动标题请求，切换/删除会话时中止 */
