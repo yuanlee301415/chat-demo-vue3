@@ -5,6 +5,11 @@ import { ICON_SVGS, type IconName } from './iconNames'
 
 const props = withDefaults(
   defineProps<{
+    /**
+     * 图标名，唯一来源是 `ICON_NAMES`。
+     *
+     * @see IconName 合法图标名的联合类型
+     */
     name: IconName
     /** 视觉尺寸（px）。SVG 只有 viewBox，缩放不损失清晰度。 */
     size?: number

@@ -1,6 +1,8 @@
 /**
  * 图标清单：与 `src/assets/icons/*.svg` 一一对应。
  * 新增图标时先放 SVG，再在这里登记名字；漏登记或文件名不匹配会在模块加载时直接报错。
+ *
+ * @see src/assets/icons 图标的唯一来源（文件系统）
  */
 export const ICON_NAMES = [
   'arrow-up-right',
@@ -45,6 +47,11 @@ const modules = import.meta.glob('../../assets/icons/*.svg', {
   import: 'default',
 }) as Record<string, string>
 
+/**
+ * 从 glob 路径取图标名（去掉目录与 `.svg` 后缀）。
+ *
+ * @param filePath `import.meta.glob` 返回的键
+ */
 const fileToName = (filePath: string) => filePath.slice(ICON_DIR.length, -'.svg'.length)
 
 /** 图标名 → SVG 源码。AppIcon 直接内联渲染，不需要额外的网络请求。 */

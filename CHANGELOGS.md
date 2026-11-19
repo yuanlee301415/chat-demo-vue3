@@ -783,3 +783,42 @@
 - 测试 helper 注释与 jsdoc 规则收紧在 `DOC-05`。
 - jsdoc 规则仍是 `warn`。
 - 字段检查器对联合类型里的内联对象仍可能漏检（已知边界，靠 review 兜底）。
+
+---
+
+## DOC-03 状态与组件层注释
+
+- 状态：已提交（`git log --grep DOC-03`）
+- 开始：2026-11-19 11:13
+
+**计划与目标**
+
+- 目标：补齐 `stores/*`、`i18n`、`iconNames` 与 `AppIcon` 的注释，让 `docs:fields` 归零，并把剩余警告集中到 `DOC-04`/`DOC-05`。
+- 范围：`src/i18n/index.ts`、`src/components.d.ts`、`src/components/base/iconNames.ts`、`AppIcon.vue`、`src/stores/settings.ts`、`session.ts`、`runtime.ts`。
+- 不做：不碰 `app/*` 与构建配置（`DOC-04`）；不处理测试 helper（`DOC-05`）；不改逻辑。
+- 验收：
+  1. `pnpm docs:fields` 退出 0（全仓 0 缺口）。
+  2. 上述文件无 `jsdoc/require-jsdoc` 警告；剩余警告只剩 `DOC-04`/`DOC-05` 范围。
+  3. `@see` 覆盖 `zh`、`ICON_NAMES`/`IconName`、`APP_NAMESPACE`、`Session`。
+  4. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **`TranslationMessage` 展开为多行**（第 3 处单行对象类型），`LinkedMessage` 的 `type`/`link` 补注释；`TranslationKey` 用 `@see zh` 指向文案唯一来源。
+2. **图标三处来源串起来**：`ICON_NAMES` 加 `@see src/assets/icons`（文件系统是来源）、`fileToName` 补 `@param`、`AppIcon.name` 的 props 注释指向 `IconName`；`components.d.ts` 的全局组件声明注释指向实现文件。
+3. **store 注释用一次性脚本插入**：沿用 DOC-02 的「行号 + 期望内容」校验；首轮把 lint 行号误读成 `touch`（实际 15 行是 `omitKey`），脚本按 expect 中止后修正行号重跑，settings 部分未受影响（先写、后校验）。
+4. **`@see` 放在 store 级**：session store → `Session`/`SessionSummary` 与 `CHANGELOGS.md（P2-02）`；settings 前缀 → `APP_NAMESPACE`；不在每个 action 上重复标注。
+5. **不写显而易见的 `@param`**：`(id: string)` 这类参数不展开，只保留一句话职责，符合 AGENTS.md §6 的「简洁」要求。
+
+**验证记录**
+
+- `pnpm docs:fields`：**0**（全仓具名类型字段都有注释），exit 0。
+- `pnpm lint`：38 → **18 warning**、0 error；剩余全部在 `DOC-04`（`ProviderProbe` 2 + `useThemeMode` 2 + `vite.config` 2）与 `DOC-05`（测试 helper 12）。
+- `pnpm type` / `format:check` / `test`（60 例）/ `build` 通过；bundle 体积保持 425.88 kB 不变（哈希因注释与格式变化而变，非运行时变化）。
+- 改动文件：`i18n/index.ts`、`components.d.ts`、`iconNames.ts`、`AppIcon.vue`、`stores/settings.ts`、`stores/session.ts`、`stores/runtime.ts`。
+
+**遗留**
+
+- app 层与构建配置的 6 条警告在 `DOC-04`。
+- 测试 helper 的 12 条警告与规则收紧在 `DOC-05`。
+- jsdoc 规则仍是 `warn`。

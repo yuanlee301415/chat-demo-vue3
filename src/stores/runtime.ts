@@ -30,6 +30,7 @@ export interface ChatRuntime {
   initTask?: Promise<void>
 }
 
+/** 创建一份空运行态；每个 Pinia 实例一份，测试换 pinia 即重置。 */
 export const createChatRuntime = (): ChatRuntime => ({
   sessionAccess: new Map(),
   accessSequence: 0,

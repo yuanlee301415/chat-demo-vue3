@@ -8,16 +8,22 @@ import { useRuntimeStore } from './runtime'
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
 
+/** 按更新时间降序排序，不修改入参。 */
 const sortSessions = (sessions: SessionSummary[]): SessionSummary[] => [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
 
+/** 摘要元数据是否一致，用于判断列表顺序是否需要更新。 */
 const sameSummary = (a: SessionSummary, b: SessionSummary): boolean => a.title === b.title && a.createdAt === b.createdAt && a.updatedAt === b.updatedAt
 
+/** 删除对象里的某个键，返回新对象。 */
 const omitKey = <T>(record: Record<string, T>, key: string): Record<string, T> => Object.fromEntries(Object.entries(record).filter(([item]) => item !== key))
 
 /**
  * 会话列表与详情缓存。
  * 列表只存元数据、按 updatedAt 降序；详情按需加载进 LRU 缓存（上限 5），
  * 加载/保存失败按会话记录，供界面单独提示，不影响其他会话。
+ *
+ * @see Session / SessionSummary 数据模型
+ * @see CHANGELOGS.md（P2-02）会话状态机决策
  */
 export const useSessionStore = defineStore('session', () => {
   const { runtime } = useRuntimeStore()
@@ -31,11 +37,13 @@ export const useSessionStore = defineStore('session', () => {
   /** null 表示新对话（欢迎页） */
   const activeId = shallowRef<string | null>(null)
 
+  /** 记录会话访问顺序，供 LRU 淘汰使用。 */
   const touch = (id: string) => {
     runtime.accessSequence += 1
     runtime.sessionAccess.set(id, runtime.accessSequence)
   }
 
+  /** 超过缓存上限时淘汰最久未访问且可淘汰的会话。 */
   const trimSessionCache = () => {
     const ids = Object.keys(sessionCache.value)
     if (ids.length <= SESSION_CACHE_LIMIT) {
@@ -85,6 +93,7 @@ export const useSessionStore = defineStore('session', () => {
       })
   }
 
+  /** 初始化会话列表；并发调用共享同一次加载。 */
   const init = (): Promise<void> => {
     if (ready.value) {
       return Promise.resolve()
@@ -166,11 +175,13 @@ export const useSessionStore = defineStore('session', () => {
     trimSessionCache()
   }
 
+  /** 回到欢迎页：只清 activeId，不清详情缓存。 */
   const newChat = () => {
     activeId.value = null
     trimSessionCache()
   }
 
+  /** 重命名：已加载走缓存 + 落盘，未加载只改摘要与 DB。 */
   const rename = (id: string, title: string) => {
     if (runtime.deletingSessions.has(id)) {
       return

@@ -6,7 +6,11 @@ import { APP_NAMESPACE } from '../services/appNamespace'
 /** 主题偏好：跟随系统 / 浅色 / 深色。 */
 export type ThemePreference = 'system' | 'light' | 'dark'
 
-/** 与计划 §3.6 一致；前缀由 `APP_NAMESPACE` 派生，旧 `chat-demo:` 的数据不再读取。 */
+/**
+ * 与计划 §3.6 一致；前缀由 `APP_NAMESPACE` 派生，旧 `chat-demo:` 的数据不再读取。
+ *
+ * @see APP_NAMESPACE 命名空间的唯一来源
+ */
 const PREFIX = `${APP_NAMESPACE}:`
 
 const KEYS = {
@@ -17,6 +21,7 @@ const KEYS = {
   siderCollapsed: `${PREFIX}sider-collapsed`,
 } as const
 
+/** 读 localStorage；不可用时返回 null。 */
 const read = (key: string): string | null => {
   try {
     return localStorage.getItem(key)
@@ -25,6 +30,7 @@ const read = (key: string): string | null => {
   }
 }
 
+/** 写或删除 localStorage；不可用时静默失败。 */
 const write = (key: string, value: string | null) => {
   try {
     if (value === null) {
@@ -37,8 +43,10 @@ const write = (key: string, value: string | null) => {
   }
 }
 
+/** 判断是否是合法主题取值。 */
 const isThemePreference = (value: string | null): value is ThemePreference => value === 'system' || value === 'light' || value === 'dark'
 
+/** 读取主题偏好，缺省或非法时回退跟随系统。 */
 const readTheme = (): ThemePreference => {
   const saved = read(KEYS.theme)
   return isThemePreference(saved) ? saved : 'system'
@@ -55,26 +63,31 @@ export const useSettingsStore = defineStore('settings', () => {
   const search = shallowRef(read(KEYS.search) === 'true')
   const siderCollapsed = shallowRef(read(KEYS.siderCollapsed) === 'true')
 
+  /** 更新 API Key 并持久化。 */
   const setApiKey = (value: string | null) => {
     write(KEYS.apiKey, value)
     apiKey.value = value
   }
 
+  /** 更新主题偏好并持久化。 */
   const setTheme = (value: ThemePreference) => {
     write(KEYS.theme, value)
     theme.value = value
   }
 
+  /** 更新深度思考开关并持久化。 */
   const setThinking = (value: boolean) => {
     write(KEYS.thinking, String(value))
     thinking.value = value
   }
 
+  /** 更新智能搜索开关并持久化。 */
   const setSearch = (value: boolean) => {
     write(KEYS.search, String(value))
     search.value = value
   }
 
+  /** 更新侧栏折叠状态并持久化。 */
   const setSiderCollapsed = (value: boolean) => {
     write(KEYS.siderCollapsed, String(value))
     siderCollapsed.value = value
