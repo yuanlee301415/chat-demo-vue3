@@ -913,3 +913,58 @@
 
 ---
 
+## Phase 3 步骤清单
+
+- `P3-01` 布局与侧栏
+- `P3-02` 会话视图与欢迎页
+- `P3-03` 消息列表与气泡
+- `P3-04` ChatInput（输入、发送/停止、快捷键）
+- `P3-05` 发送与流式接入
+- `P3-06` 编辑 / 重新生成 / 分支切换 / 续写
+- `P3-07` 附件 UI（选择、拖拽、粘贴、重试）
+- `P3-08` 错误提示与重试
+- `P3-99` Phase 3 门禁
+
+---
+
+## P3-01 布局与侧栏
+
+- 状态：已提交（`git log --grep P3-01`）
+- 开始：2026-11-19 14:49
+
+**计划与目标**
+
+- 目标：把 `App.vue` 的占位外壳换成真实布局——可折叠侧栏（品牌、新对话、按时间分组的会话列表、主题开关）与主内容区（加载态 / 欢迎页）。
+- 范围：`src/app/App.vue`、`src/components/sider/AppSider.vue`、`SessionItem.vue`、`CollapsedSider.vue`、`src/components/session/WelcomeView.vue`、`src/app/useThemeMode.ts`（主题文案）。
+- 不做：会话详情与消息列表（`P3-02`/`P3-03`）；设置弹窗（Phase 4）；移动端抽屉；删除全部。
+- 验收：
+  1. 侧栏 240 / 收起 64，收起后仍可展开、新对话、切主题。
+  2. 会话按今天/昨天/7 天/30 天/月份分组；空列表显示空状态。
+  3. 会话项支持选中、重命名（内联输入）、删除（确认弹窗，失败提示）。
+  4. `type|lint|format:check|test|build` 全绿；dev 冒烟控制台 0 报错。
+
+**关键决策始末**
+
+1. **布局用 NaiveUI 的 `NLayout` + `NLayoutSider`**，收起宽度 64，状态存 settings store 的 `siderCollapsed`（已有持久化），不新增 UI 态。
+2. **删除确认用 `useDialog`**：与 Provider 层级一致，避免再引入 `NPopconfirm` 造成两种交互；失败时 `message.error`。
+3. **重命名内联**：`SessionItem` 内 `NInput`，回车提交、Esc 取消；标题为空回退「新对话」。
+4. **分组基准时间自带刷新**：挂载时算一次，并在零点、窗口聚焦/可见时重算，避免跨天后分组过期。
+5. **主题文案下沉到 `useThemeMode`**：`label` 与 `icon` 都由 `ThemePreference` 派生，App.vue 与侧栏共用一份映射，避免两处 `Record`。
+6. **删除临时 `ProviderProbe.vue`**：P1 的验证组件按约定在 Phase 3 移除。
+7. **`Welcome` 更名 `WelcomeView`**：`vue/multi-word-component-names` 不允许单词组件名；原版叫 `Welcome`，这里为规则让步。
+8. **设置入口暂不放入侧栏**：设置弹窗在 Phase 4，先不放死按钮，避免误导。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `test`（126 例）/ `build`：全部 exit 0。
+- 浏览器（dev 8097）：品牌「API 使用 demo」、欢迎语「今天有什么可以帮到你？」、新对话按钮、空列表状态、版本 meta `0.1.0`；侧栏宽度 **240 → 64 → 240**（收起按钮与展开按钮都可用）；控制台 **0 报错**。
+- 截图存于临时目录（`dsh-p3-01.png`），未入库。
+
+**遗留**
+
+- 会话项选中后的详情视图在 `P3-02`；本轮冒烟用空库，未覆盖选中/重命名/删除的真实数据流程（单测只覆盖 store 层）。
+- 折叠态没有会话列表，展开后才能选会话（与原版一致）。
+- 设置弹窗、移动端抽屉不在 Phase 3 范围。
+
+---
+
