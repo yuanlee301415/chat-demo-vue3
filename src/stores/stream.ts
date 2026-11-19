@@ -6,6 +6,7 @@ import { streamMessage } from '../services/api/client'
 import type { ChatModel, CreateMessageRequest } from '../services/api/types'
 import { appendBranch, getVisibleMessages, selectVersion as selectBranchVersion } from '../services/chat/branches'
 import { applyEvent, canContinueReply, settleReply, toRequestMessages } from '../services/chat/reply'
+import { createLatestReminder } from '../services/chat/latestReminder'
 import type { AssistantMessage, FileAttachment, Message, Session, UserMessage } from '../services/chat/types'
 import { toSessionSummary } from '../services/chat/types'
 import { createId } from '../utils/id'
@@ -132,12 +133,16 @@ export const useStreamStore = defineStore('stream', () => {
       runtime.streamFlushes.set(sessionId, flush)
 
       try {
+        // 续写沿用原回答的系统信息快照；新回复按当前时间生成。
+        const latestReminder = request.prefix?.latestReminder ?? createLatestReminder()
+        reply = { ...reply, latestReminder }
+        updateReply(sessionId, reply)
         const events = streamMessage(
           settings.apiKey ?? '',
           {
             model: initial.model ?? MODEL,
             system: SYSTEM_PROMPT,
-            messages: toRequestMessages(request.history, request.question, request.prefix, initial.thinking ?? false, request.prefix?.latestReminder),
+            messages: toRequestMessages(request.history, request.question, request.prefix, initial.thinking ?? false, latestReminder),
             thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
             tools: serverTools(initial.search ?? false),
             safety_check: SAFETY_CHECK,

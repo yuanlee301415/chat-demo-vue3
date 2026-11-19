@@ -800,3 +800,37 @@
 
 ---
 
+## P2-05a sessionGroups / latestReminder
+
+- 状态：已提交（`git log --grep P2-05a`）
+- 开始：2026-11-19 14:11
+
+**计划与目标**
+
+- 目标：补上会话列表分组与系统信息快照（latestReminder），并把 reminder 接进 stream store。
+- 范围：`src/utils/format.ts`、`src/services/chat/latestReminder.ts`、`sessionGroups.ts`、`stores/stream.ts`、对应测试。
+- 不做：attachments / uploadExts / uploads store / drafts（`P2-05b`）；定位（location）不移植。
+- 验收：
+  1. 分组边界（今天/昨天/7 天/30 天/月份）与相邻合并有测试。
+  2. reminder 五项格式固定，新回复写入、续写沿用旧值。
+  3. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **不移植定位**：`location.ts` + `locationData.ts` 约 14KB，只为一个地区字段；本应用不做定位，reminder 的地区位留空串。
+2. **reminder 固定中文**：语言项直接取 `t('latestReminderLanguage')`，不再传 locale，符合固定中文的 i18n 约定。
+3. **续写沿用 `prefix.latestReminder`**：与原实现一致；新回复在请求前生成并写回 `reply.latestReminder`，再进 `toRequestMessages`。
+4. **`groupSessions` 不自带排序**：契约是「入参已按 `updatedAt` 降序、相邻同段合并」，避免隐藏副作用；排序仍由 session store 负责。
+
+**验证记录**
+
+- `pnpm test`：**109 个用例 / 16 个文件**全过，新增 sessionGroups 2、latestReminder 1。
+- 覆盖：今天/昨天/7 天/30 天/月份五段、相邻同段合并；reminder 固定为 `日期,星期,,Web,中文`。
+- `pnpm type` / `lint` / `format:check` / `build` / `docs:fields` 全绿；bundle 体积不变（尚未被界面引用）。
+
+**遗留**
+
+- attachments / uploadExts / uploads store / drafts 在 `P2-05b`。
+
+---
+
