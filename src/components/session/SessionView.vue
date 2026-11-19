@@ -5,6 +5,7 @@ import { useI18n } from '../../i18n'
 import type { Session } from '../../services/chat/types'
 import { useStreamStore } from '../../stores/stream'
 import MessageList from '../messages/MessageList.vue'
+import ChatInput from '../chatInput/ChatInput.vue'
 
 const props = defineProps<{
   /** 已加载的会话详情 */
@@ -24,6 +25,11 @@ const title = computed(() => props.session.title || t('untitledChat'))
       <h1 class="session__title">{{ title }}</h1>
     </header>
     <MessageList :session="session" :streaming="stream.isStreaming(session.id)" />
+
+    <footer class="session__footer">
+      <ChatInput :session-id="session.id" />
+      <p class="session__caveat">{{ t('contentCaveat') }}</p>
+    </footer>
   </section>
 </template>
 
@@ -51,5 +57,21 @@ const title = computed(() => props.session.title || t('untitledChat'))
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.session__footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 12px 24px 16px;
+  border-top: 1px solid rgb(128 128 128 / 12%);
+}
+
+.session__caveat {
+  margin: 0;
+  color: #8a8f99;
+  font-size: 11px;
 }
 </style>

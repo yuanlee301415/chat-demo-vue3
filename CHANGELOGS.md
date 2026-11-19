@@ -1050,3 +1050,45 @@
 
 ---
 
+## P3-04 ChatInput
+
+- 状态：已提交（`git log --grep P3-04`）
+- 开始：2026-11-19 15:03
+
+**计划与目标**
+
+- 目标：实现聊天输入框——多行自增高、草稿绑定、Enter 发送 / Shift+Enter 换行、发送与停止按钮、深度思考/智能搜索开关；欢迎页与会话页共用。
+- 范围：`src/components/chatInput/ChatInput.vue`、`src/components/session/WelcomeView.vue`、`SessionView.vue`。
+- 不做：附件选择/拖拽/粘贴（`P3-07`）；编辑/重新生成/续写入口（`P3-06`）；流式性能优化。
+- 验收：
+  1. 输入内容写在 drafts store，切换会话后草稿不串。
+  2. 无内容或附件未传完时发送禁用；Enter 发送、Shift+Enter 换行、输入法组合中不误发。
+  3. 生成中按钮变「停止」，点击调用 `stream.stop`。
+  4. 思考/搜索开关读写 settings 并持久化。
+  5. `type|lint|format:check|test|build` 全绿；冒烟覆盖「输入→Enter 发送→失败收尾」。
+
+**关键决策始末**
+
+1. **发送直接接 `sendDraft`**：P2-05b 已把草稿、上传、发送串好，本步不再造中间层；新会话由 store 设为 `activeId`，欢迎页自然切成会话页。
+2. **发送可用性由「草稿 + 上传任务」共同决定**：正文为空但有附件时也可发送；附件未全部 `done` 时禁用，避免提交后才失败。
+3. **快捷键用单个 `@keydown`**：延续 P3-02 的教训，避免多个 keydown 修饰符被合并成数组触发 NaiveUI 警告；`isComposing` 时跳过。
+4. **开关直接写 settings**：`setThinking`/`setSearch` 已有持久化，输入框只做展示与切换，不复制状态。
+5. **附件按钮留到 `P3-07`**：先不放死按钮，避免误导。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `test`（126 例）/ `build`：全部 exit 0。
+- 浏览器（dev 8097）：
+  - 欢迎页有输入框，占位「请输入消息」，初始发送禁用；
+  - 输入「你好」后发送按钮可用；
+  - 点「深度思考」后 `localStorage['chat-demo-vue:thinking'] === 'true'`；
+  - 页内把 `fetch` 替换为立即失败后按 Enter：新建 1 条会话、用户气泡「你好」、助手错误气泡「blocked」、输入框清空、发送重新禁用；
+  - 控制台 **0 报错 / 0 警告**。截图存临时目录（`dsh-p3-04.png`），未入库。
+
+**遗留**
+
+- 附件入口、拖拽/粘贴在 `P3-07`。
+- 生成中的「停止」交互未在冒烟里覆盖（需要可控的长流），留到 `P3-05`/`P3-99`。
+
+---
+
