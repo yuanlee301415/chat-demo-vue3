@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import { NButton, useMessage } from 'naive-ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useI18n } from '../../i18n'
+import { canContinueReply, getReplyText } from '../../services/chat/reply'
 import type { AssistantMessage } from '../../services/chat/types'
 import { buildReplyView, getAreaTitle, type Step } from '../../services/chat/view'
+import { useStreamStore } from '../../stores/stream'
 
 const props = defineProps<{
+  /** 所属会话 id */
+  sessionId: string
   /** 助手回复 */
   message: AssistantMessage
   /** 是否仍在流式生成 */
@@ -13,6 +18,8 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const stream = useStreamStore()
+const toast = useMessage()
 
 /** 当前时间，流式时每秒刷新用于思考用时。 */
 const now = ref(Date.now())
@@ -89,6 +96,33 @@ const errorText = computed(() => {
   }
   return error.localMessage === undefined ? error.message : t(error.localMessage.key, error.localMessage.params)
 })
+
+/** 是否允许继续生成；与 store 的判定同源。 */
+const canContinue = computed(() => canContinueReply(props.message))
+
+/** 复制正文；非安全上下文可能失败，失败给提示。 */
+const copy = async () => {
+  try {
+    await navigator.clipboard.writeText(getReplyText(props.message))
+    toast.success(t('copy'))
+  } catch {
+    toast.error(t('copyFailed'))
+  }
+}
+
+/** 重新生成当前回答。 */
+const regenerate = () => {
+  if (!props.streaming) {
+    stream.regenerate(props.sessionId, props.message.id)
+  }
+}
+
+/** 继续未完成的回答。 */
+const continueReply = () => {
+  if (!props.streaming) {
+    stream.continueReply(props.sessionId, props.message.id)
+  }
+}
 </script>
 
 <template>
@@ -105,6 +139,12 @@ const errorText = computed(() => {
     <p v-else-if="message.status === 'stopped'" class="muted">{{ t('messageThinkStopped') }}</p>
 
     <p v-if="errorText" class="error">{{ errorText }}</p>
+
+    <div class="actions">
+      <NButton text size="tiny" @click="copy">{{ t('copy') }}</NButton>
+      <NButton text size="tiny" :disabled="streaming" @click="regenerate">{{ t('regenerate') }}</NButton>
+      <NButton v-if="canContinue" text size="tiny" :disabled="streaming" @click="continueReply">{{ t('continueGenerating') }}</NButton>
+    </div>
   </div>
 </template>
 
@@ -155,5 +195,15 @@ const errorText = computed(() => {
   margin: 0;
   color: #d64545;
   font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  opacity: 0.7;
+}
+
+.actions:hover {
+  opacity: 1;
 }
 </style>

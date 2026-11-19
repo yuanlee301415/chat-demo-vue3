@@ -63,8 +63,8 @@ onMounted(scrollToBottom)
   <div ref="scroller" class="list" @scroll.passive="onScroll">
     <div class="list__inner">
       <div v-for="item in items" :key="item.message.id" class="list__item">
-        <UserMessage v-if="item.message.role === 'user'" :message="item.message" />
-        <AssistantMessage v-else :message="item.message" :streaming="isStreamingMessage(item.message)" />
+        <UserMessage v-if="item.message.role === 'user'" :session-id="session.id" :message="item.message" />
+        <AssistantMessage v-else :session-id="session.id" :message="item.message" :streaming="isStreamingMessage(item.message)" />
         <BranchSwitcher v-if="item.versions !== undefined" :versions="item.versions" @select="selectVersion" />
       </div>
     </div>
