@@ -25,16 +25,12 @@ export const ICON_NAMES = [
   'new-chat',
   'panel-left',
   'paperclip',
-  'photo-error',
-  'refresh',
   'search',
   'search-warning',
   'send',
   'settings',
   'stop',
   'think',
-  'trash',
-  'warning',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]

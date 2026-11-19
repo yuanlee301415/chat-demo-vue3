@@ -56,7 +56,7 @@ const remove = (id: string) => {
 
       <div class="card__actions">
         <NButton v-if="statusOf(attachment.id) === 'error'" text size="tiny" @click="retry(attachment.id)">{{ t('retry') }}</NButton>
-        <NButton text size="tiny" aria-label="移除附件" @click="remove(attachment.id)">×</NButton>
+        <NButton text size="tiny" :aria-label="t('removeAttachment')" @click="remove(attachment.id)">×</NButton>
       </div>
     </li>
   </ul>

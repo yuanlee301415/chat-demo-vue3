@@ -1541,3 +1541,58 @@
 - `zh.ts` 仍保留语音 / 导入导出等未使用文案，Phase 5 统一清理。
 - KaTeX（0.18）与 Mermaid（12）比旧版（0.16 / 11）新，内部 DOM 不做逐像素对比；结构一致已由占位归一化覆盖。
 - 真实 DeepSeek 接口仍未联调（需要 Key 与外网）。
+
+## Phase 5 步骤清单
+
+按当前需求拆为 2 步 + 门禁（计划里的 CI / Pages 配置本轮不做，见 P5-99 遗留）：
+
+| 步骤 | 内容 |
+|---|---|
+| `P5-01` | 未使用依赖 / 文件 / CSS / 翻译 key 清理 |
+| `P5-02` | README 重写 |
+| `P5-99` | Phase 5 门禁：Windows / Linux 构建通过、`pnpm test` 通过、preview 可完整使用 |
+
+---
+
+## P5-01 未使用依赖 / 文件 / CSS / 翻译 key 清理
+
+- 状态：已提交（`git log --grep P5-01`）
+- 开始：2026-11-19 17:20
+
+**计划与目标**
+
+- 目标：按计划 Phase 5 收口——删掉重构后不再使用的依赖、文件、CSS（含主题 token）与翻译 key，并把被硬编码的中文提示改回 `t()`，让「唯一事实来源」真正成立。
+- 范围：`package.json` / `pnpm-lock.yaml`（仅在确认未使用后改动）、`src/**` 的图标与样式、`src/i18n/zh.ts`、`BranchSwitcher.vue`、`DraftAttachments.vue`、`ChatInput.vue`。
+- 不做：Phase 5 的 README（`P5-02`）、CI / Pages、任何功能或视觉改版。
+- 验收：
+  1. 依赖审计：`dependencies` / `devDependencies` 每一项都能在源码或配置里找到引用。
+  2. 文件审计：`src/**` 无未被引用的模块；图标清单与 SVG 文件一一对应。
+  3. CSS 审计：无未使用的主题变量、未使用的类选择器；Prism 主题里插件专用的规则删除。
+  4. 翻译：无未被引用的 key；组件里不再有硬编码中文（系统提示词与数据表除外）。
+  5. `type|lint|format:check|test|build` 全绿；主题 / Markdown / 设置界面冒烟无回归。
+**关键决策始末**
+
+1. **先做可达性审计再删**：依赖扫源码与配置的 import；文件扫导入路径；图标扫 `'name'` 字面量；CSS 变量从「外部 `var()` 使用」出发沿定义做可达性遍历（避免简单计数误删只在浅色块引用的 token）；翻译 key 扫 `'key'` 字面量（含测试）。
+2. **硬编码中文先补 `t()` 再删 key**：`BranchSwitcher` 的版本分组/上一个/下一个、`DraftAttachments` 的「移除附件」、`ChatInput` 的附件按钮与两个开关 tooltip（按旧版用 deactivated 文案）——否则会把仍在使用的文案删掉。
+3. **图标删 4 个**（`photo-error` / `refresh` / `trash` / `warning`）：只在 `ICON_NAMES` 里出现；同步删 SVG 与登记项，`AppIcon` 的缺文件检查保证不会漏。
+4. **Prism 主题只删未启用插件的规则**（toolbar、line-numbers、line-highlight、rainbow-braces、diff-highlight、command-line、不可见字符），token 配色保留；`markdown.css` 删已被组件 scoped 样式替代的 `.md-code-block-switch` 与 `.ds-a` 例外标记。
+5. **主题 token 只留可达项**：删 58 个变量（深浅两份共 113 行），保留实际使用的 58 个—markdown、代码块、边框、交互背景、字体族与代码字体都在。
+6. **依赖没有变化**：审计列出的 `@types/*`、eslint / prettier / typescript / vue-tsc 都是配置或 CLI 隐式使用；`fake-indexeddb/auto` 是副作用导入，脚本正则未覆盖但实际在用。
+
+**验证记录**
+
+- 审计结果：依赖全部可追溯到源码/配置；`src/**` 0 个未引用模块；图标 26 个（删 4，文件与登记一一对应）；翻译 key **0/122 未使用**；主题变量 **0/58 未使用**；Vue scoped CSS 只剩 `:deep()` 命中（误报）。
+- 命令：`pnpm type` / `lint` / `format:check` / `test`（149 例 / 25 文件）/ `build` → **全部 exit 0**。
+- 构建：CSS 46.00 → **37.21 kB**（gzip 6.94），入口 JS 819.71 → **811.83 kB**（gzip 247.82）。
+- 浏览器（dev 8097，预置 Markdown + 引用 + 搜索会话）：
+  - 标题 / 表格 / 任务项 / 代码块 token（5 个）/ 行内公式 / 引用角标 / 搜索行 / 汇总 pill 全部正常；
+  - 浅色下链接 `rgb(57, 100, 254)`、代码块 `rgb(249, 250, 251)`、引用角标 `rgb(245, 246, 247)`；切深色后正文与 token 颜色随之变化；
+  - 15 个 `AppIcon` 正常渲染，无缺失图标；控制台 **0 报错 / 0 警告**。
+  - 截图存临时目录（`dsh-p5-cleanup.png`），未入库。
+
+**遗留**
+
+- 主题 token 只保留当前用到的；以后新增组件需要旧 token 时按旧项目 `theme.css` 补回，不再整份平铺。
+- Prism 主题仍保留当前未用语言的 token 规则（如 `language-json` / `language-css` 之外的分组），避免以后切换到这些语言时缺色。
+- 翻译审计把测试文件中的引用也算作使用，因此「仅测试使用」的 key 会保留；如需进一步收紧，可在后续步骤单独处理。
+- CI / Pages 配置本轮未做，见 `P5-99`。

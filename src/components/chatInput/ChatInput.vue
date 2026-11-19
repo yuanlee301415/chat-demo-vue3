@@ -118,7 +118,7 @@ const onPaste = (event: ClipboardEvent) => {
 
     <div class="chat-input__bar">
       <div class="chat-input__toggles">
-        <NButton quaternary circle size="small" aria-label="添加附件" @click="openPicker">
+        <NButton quaternary circle size="small" :aria-label="t('uploadFile')" @click="openPicker">
           <template #icon>
             <AppIcon name="paperclip" />
           </template>
@@ -132,7 +132,7 @@ const onPaste = (event: ClipboardEvent) => {
               </template>
             </NButton>
           </template>
-          {{ t('thinkingSwitch') }}
+          {{ t('deactivatedThinkTooltip') }}
         </NTooltip>
         <NTooltip placement="top">
           <template #trigger>
@@ -142,7 +142,7 @@ const onPaste = (event: ClipboardEvent) => {
               </template>
             </NButton>
           </template>
-          {{ t('search') }}
+          {{ t('deactivatedSearchTooltip') }}
         </NTooltip>
       </div>
 

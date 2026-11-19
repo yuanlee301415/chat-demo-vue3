@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { NButton, NButtonGroup } from 'naive-ui'
 
+import { useI18n } from '../../i18n'
 import type { MessageVersions } from '../../services/chat/branches'
 
 const props = defineProps<{
@@ -12,6 +13,8 @@ const emit = defineEmits<{
   /** 切到指定版本的消息 id */
   select: [id: string]
 }>()
+
+const { t } = useI18n()
 
 /** 切到上一个版本；已是第一个则不动。 */
 const previous = () => {
@@ -37,10 +40,10 @@ const next = () => {
 </script>
 
 <template>
-  <NButtonGroup v-if="versions !== undefined" size="tiny" class="branch">
-    <NButton quaternary :disabled="versions.index === 0" aria-label="上一个版本" @click="previous">‹</NButton>
+  <NButtonGroup v-if="versions !== undefined" size="tiny" class="branch" :aria-label="t('messageVersions')">
+    <NButton quaternary :disabled="versions.index === 0" :aria-label="t('previousVersion')" @click="previous">‹</NButton>
     <span class="branch__count">{{ versions.index + 1 }}/{{ versions.ids.length }}</span>
-    <NButton quaternary :disabled="versions.index === versions.ids.length - 1" aria-label="下一个版本" @click="next">›</NButton>
+    <NButton quaternary :disabled="versions.index === versions.ids.length - 1" :aria-label="t('nextVersion')" @click="next">›</NButton>
   </NButtonGroup>
 </template>
 
