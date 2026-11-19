@@ -834,3 +834,42 @@
 
 ---
 
+## P2-05b 附件链路
+
+- 状态：已提交（`git log --grep P2-05b`）
+- 开始：2026-11-19 14:16
+
+**计划与目标**
+
+- 目标：把附件从选择、校验、上传到随消息发送的链路补齐，并接进草稿与 stream store。
+- 范围：`src/services/attachments.ts`、`services/uploadExts.ts`、`stores/uploads.ts`、`stores/drafts.ts`、`stores/stream.ts`（`sendDraft`）、对应测试。
+- 不做：服务端 `file_id` 失效后的自动重传（`retryUpload`）；附件 UI（Phase 3）。
+- 验收：
+  1. 白名单/大小/数量校验、MIME 推断与上传 purpose 有测试。
+  2. 上传成功/失败/取消/同 id 复用有测试。
+  3. 草稿添加/移除/发送成功后清空有测试；`sendDraft` 带上 `serverId` 并把原件交给会话。
+  4. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **uploads 用 Pinia 而不是 zustand**：任务表放 `shallowRef`，在途 Map、控制器、队列用 `markRaw` 挂在 store 内；测试换 `createPinia()` 即重置，不写模块级可变全局。
+2. **`attachments.ts` 只留纯函数与常量**：上传队列与任务状态进 store，避免纯逻辑模块自带状态、也方便测试。
+3. **并发与复用保持原语义**：最多 3 个并发；同一附件 id 复用在途 Promise；取消时中止请求并移除任务。
+4. **预览地址容错**：非图片或环境没有 `URL.createObjectURL` 时置空；`clearSentDraft` 只释放预览、不取消已完成的上传。
+5. **`sendDraft` 的门槛**：任一附件不是 `done` 就返回 false，草稿保留可重试；成功后清空草稿，并把原件写入 `runtime.pendingFiles`，随会话一起落库。
+6. **`send` 增加 `blobs` 入参**：会话消息里只存附件元数据，blob 单独走 `pendingFiles`，避免把二进制混进会话 JSON。
+
+**验证记录**
+
+- `pnpm test`：**126 个用例 / 21 个文件**全过，新增 attachments 8、uploads 4、drafts 4、stream 的 sendDraft 1。
+- 覆盖：扩展名白名单、user_data 32MB 上限、数量上限、MIME 推断、上传 purpose、大小格式化；上传成功/失败/取消/同 id 复用；草稿添加、移除取消上传、发送后清空；`sendDraft` 写入 `serverId` 并清空草稿。
+- `pnpm type` / `lint` / `format:check` / `build` / `docs:fields` 全绿；bundle 体积保持 425.88 kB（尚未接 UI）。
+
+**遗留**
+
+- `retryUpload`（服务端判定 `file_id` 失效后自动重传）未实现：导入导出已移除，等 Phase 3 真实场景再补。
+- 附件 UI（输入框卡片、上传进度、重试入口）在 Phase 3。
+- `P2-99` 阶段门禁后进入 Phase 3。
+
+---
+

@@ -4,15 +4,19 @@ import 'fake-indexeddb/auto'
 
 import { ApiError } from '../services/api/ApiError'
 import type { MessageStreamEvent } from '../services/api/types'
+import type { AssistantMessage, UserMessage } from '../services/chat/types'
+import { useDraftsStore } from './drafts'
 import { useSessionStore } from './session'
 import { useSettingsStore } from './settings'
 import { useStreamStore } from './stream'
-import type { AssistantMessage } from '../services/chat/types'
+import { useUploadsStore } from './uploads'
 
 const streamMessage = vi.fn()
+const uploadFile = vi.fn()
 
 vi.mock('../services/api/client', () => ({
   streamMessage: (...args: unknown[]) => streamMessage(...args),
+  uploadFile: (...args: unknown[]) => uploadFile(...args),
 }))
 
 /** 把事件列表包成异步生成器，模拟 SSE 逐个到达。 */
@@ -45,6 +49,7 @@ const sendAndWait = async (text: string, list: MessageStreamEvent[]) => {
 beforeEach(async () => {
   setActivePinia(createPinia())
   streamMessage.mockReset()
+  uploadFile.mockReset()
   useSettingsStore().setApiKey('sk-test')
   await useSessionStore().init()
 })
@@ -73,6 +78,26 @@ describe('send', () => {
     await stream.waitForIdle(id)
 
     expect(session.sessionCache[id].messages[1]).toMatchObject({ status: 'error', error: { kind: 'http', message: 'boom', status: 500 } })
+  })
+
+  it('经草稿发送：附件带上 serverId，成功后清空草稿', async () => {
+    const drafts = useDraftsStore()
+    const uploads = useUploadsStore()
+    const session = useSessionStore()
+    const stream = useStreamStore()
+    uploadFile.mockResolvedValueOnce({ id: 'file-1' })
+
+    drafts.setText(null, '看图')
+    expect(drafts.addFiles(null, [new File(['x'], 'a.png', { type: 'image/png' })], 'sk-test')).toBeNull()
+    await uploads.waitFor(drafts.getDraft(null).attachments[0].id)
+
+    streamMessage.mockReturnValueOnce(events(textEvents('收到')))
+    expect(stream.sendDraft(null)).toBe(true)
+    const id = session.activeId as string
+    await stream.waitForIdle(id)
+
+    expect((session.sessionCache[id].messages[0] as UserMessage).files[0]).toMatchObject({ serverId: 'file-1', name: 'a.png', isImage: true })
+    expect(drafts.getDraft(null)).toEqual({ text: '', attachments: [] })
   })
 
   it('停止生成后按 stopped 收尾', async () => {

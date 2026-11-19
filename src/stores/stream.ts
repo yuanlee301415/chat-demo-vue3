@@ -13,6 +13,8 @@ import { createId } from '../utils/id'
 import { useRuntimeStore } from './runtime'
 import { useSessionStore } from './session'
 import { useSettingsStore } from './settings'
+import { prepareDraftMessage, useDraftsStore } from './drafts'
+import { useUploadsStore } from './uploads'
 
 /** deepseek-flash 同时支持深度思考与图片输入。 */
 const MODEL: ChatModel = 'deepseek-flash'
@@ -51,6 +53,8 @@ export const useStreamStore = defineStore('stream', () => {
   const runtime = useRuntimeStore().runtime
   const sessionStore = useSessionStore()
   const settings = useSettingsStore()
+  const drafts = useDraftsStore()
+  const uploads = useUploadsStore()
   /** 正在生成的会话 id，供界面显示停止按钮 */
   const streamingIds = shallowRef<Record<string, true>>({})
 
@@ -220,8 +224,8 @@ export const useStreamStore = defineStore('stream', () => {
     runtime.streaming.get(id)?.controller.abort()
   }
 
-  /** 提交一条提问；null 表示新建会话。 */
-  const send = (targetSessionId: string | null, question: { text: string; files: FileAttachment[] }): boolean => {
+  /** 提交一条提问；null 表示新建会话。`blobs` 是附件的原件，由调用方从草稿带上。 */
+  const send = (targetSessionId: string | null, question: { text: string; files: FileAttachment[]; blobs?: { id: string; blob: Blob }[] }): boolean => {
     if (!sessionStore.ready) {
       return false
     }
@@ -247,9 +251,18 @@ export const useStreamStore = defineStore('stream', () => {
       return false
     }
     const history = getVisibleMessages(current)
-    const userMessage: UserMessage = { id: createId(), role: 'user', content: text, files: question.files, createdAt: now }
+    const userMessage: UserMessage = {
+      id: createId(),
+      role: 'user',
+      content: text,
+      files: question.files.map(({ id, serverId, name, size, isImage, mimeType }) => ({ id, serverId, name, size, isImage, mimeType })),
+      createdAt: now,
+    }
     const reply = createReply()
     setSession(sessionId, { ...appendBranch(current, history.at(-1)?.id ?? null, [userMessage, reply]), updatedAt: now })
+    if (question.blobs !== undefined && question.blobs.length > 0) {
+      runtime.pendingFiles.set(sessionId, question.blobs)
+    }
     sessionStore.persist(sessionId)
     startStream(sessionId, reply, { history, question: userMessage })
     return true
@@ -340,5 +353,22 @@ export const useStreamStore = defineStore('stream', () => {
     startStream(sessionId, reply, { history: path.slice(0, -2), question, prefix: previous })
   }
 
-  return { streamingIds, isStreaming, waitForIdle, send, stop, regenerate, edit, selectVersion, continueReply }
+  /** 用当前草稿发送：附件必须全部上传成功，成功后清空草稿、原件交给会话。 */
+  const sendDraft = (targetSessionId: string | null): boolean => {
+    const prepared = prepareDraftMessage(drafts.getDraft(targetSessionId), uploads.tasks)
+    if (prepared === null) {
+      return false
+    }
+    const ok = send(targetSessionId, {
+      text: prepared.text,
+      files: prepared.files,
+      blobs: prepared.files.map(({ id, blob }) => ({ id, blob })),
+    })
+    if (ok) {
+      drafts.clearSentDraft(targetSessionId)
+    }
+    return ok
+  }
+
+  return { streamingIds, isStreaming, waitForIdle, send, sendDraft, stop, regenerate, edit, selectVersion, continueReply }
 })
