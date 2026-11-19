@@ -1596,3 +1596,38 @@
 - Prism 主题仍保留当前未用语言的 token 规则（如 `language-json` / `language-css` 之外的分组），避免以后切换到这些语言时缺色。
 - 翻译审计把测试文件中的引用也算作使用，因此「仅测试使用」的 key 会保留；如需进一步收紧，可在后续步骤单独处理。
 - CI / Pages 配置本轮未做，见 `P5-99`。
+
+---
+
+## P5-02 README 重写
+
+- 状态：已提交（`git log --grep P5-02`）
+- 开始：2026-11-19 17:35
+
+**计划与目标**
+
+- 目标：把占位的一行 README 换成能独立说明「这是什么 / 怎么跑 / 数据在哪 / 边界是什么」的交付文档；删除旧版 README 里已失效的 `file://` 双击说明。
+- 范围：仅 `README.md`。
+- 不做：新增 CI / Pages 配置；不改任何源码或脚本。
+- 验收：
+  1. README 覆盖：项目定位、功能、技术栈、环境要求、dev/build/preview、数据与隐私、浏览器支持、明确不做的范围、脚本表、目录结构、文档索引、License。
+  2. 文中引用的文件/目录都真实存在；命令与 `package.json` 的 scripts 完全一致。
+  3. 不出现 `file://`、移动端、语音、导入导出等已删除能力的操作说明（边界说明除外）。
+  4. 命令套件仍全绿（文档改动不改代码，但按基线复跑 `type|lint|format:check|test|build`）。
+**关键决策始末**
+
+1. **只写现在真实存在的内容**：命令表与 `package.json` 的 scripts 逐项对齐；文件/目录链接用脚本校验；端口不写死，指向 `vite.config.ts` 的 `DEFAULT_PORT`；API 地址指向 `createConfig({ apiOrigin })`。
+2. **边界只描述、不给操作步骤**：`file://`、移动端、语音、导入导出只出现在「不支持」段，旧 README 的双击打开说明已删除。
+3. **数据与隐私单独成节**：localStorage 前缀与 IndexedDB 库名都指回 `APP_NAMESPACE`，不复制字面量；同时写明 API Key 明文存储且页面无 CSP 的取舍，避免被当成生产方案。
+4. **保留归属**：显著标注这是社区重构版而非官方产品，保留上游链接与 MIT 声明。
+
+**验证记录**
+
+- 脚本校验：README 中出现的 `pnpm <script>` 全部存在于 `package.json`；所有相对链接（计划 / CHANGELOGS / AGENTS / LICENSE）都存在；LICENSE 为 MIT。
+- 通读检查：`file://`、移动端、语音、导入导出只出现在边界说明中，没有失效的操作指引。
+- 命令：`pnpm type` / `lint` / `format:check` / `test`（149 例）/ `build` → **全部 exit 0**。
+
+**遗留**
+
+- 未放截图 / GIF，交付时如需演示可再补。
+- CI 与 Pages 配置仍未做，见 `P5-99` 的遗留。
