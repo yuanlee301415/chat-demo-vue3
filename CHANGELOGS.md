@@ -607,3 +607,42 @@
 - `location` 设置未搬（Phase 4）。
 - `ApiErrorKind` 暂放 `api/types.ts`，网络层移植时再评估是否归入 `api/errors.ts`。
 - 旧 `chat-demo` 的 IndexedDB/localStorage 按计划保留原地，不迁移也不删除。
+
+---
+
+## P2-02 session store
+
+- 状态：已提交（`git log --grep P2-02`）
+- 开始：2026-11-19 10:03
+
+**计划与目标**
+
+- 目标：把原项目的会话状态机搬过来——列表元数据（按 `updatedAt` 降序）、详情 LRU 缓存（上限 5）、初始化、选择、重命名、删除；运行态改用 Pinia 承载的 `createChatRuntime()`。
+- 范围：`src/stores/session.ts`（新增）、`src/stores/runtime.ts`（补 `streaming`/`accessSequence`，加 `useRuntimeStore`）、`src/stores/session.test.ts`（新增）、`runtime.test.ts`（补字段断言）。
+- 不做：不接界面（Phase 3）；不接 stream/reply（`P2-04`）；不做「加载时把 pending/streaming 收尾成 stopped」与「删除前排空流」（依赖 `reply.ts`/`branches.ts`，见决策 5/6）。
+- 验收：
+  1. `pnpm test` 覆盖：初始化排序、选择、已加载/未加载两种重命名、删除、缓存淘汰、`newChat` 不清缓存。
+  2. 缓存超过 5 条时淘汰最久未访问的，且不淘汰当前会话/流式中/未落盘/删除中的会话。
+  3. `type|lint|format:check|build` 全绿，浏览器外壳无回归、控制台 0 报错。
+
+**关键决策始末**
+
+1. **运行态用 Pinia 承载（`useRuntimeStore`），不用模块级单例**：`createChatRuntime()` 返回 `markRaw` 对象，放进一个 setup store——同一 Pinia 实例内 session/stream 共享同一份，测试里换 `createPinia()` 就得到干净运行态，同时避免模块级可变全局。
+2. **补了 `streaming` 与 `accessSequence` 两个字段**：LRU 淘汰需要「是否在流式中」与访问序号；`AbortController` 不能进响应式状态，放 runtime 比放 store state 更合适。
+3. **`sessions` 只存摘要，详情进 `sessionCache`**（上限 5 的 LRU）。淘汰时跳过：当前会话、流式中的会话、未落盘的会话、正在删除的会话。
+4. **`persist` 维护未保存标记**：写盘前 `unsavedSessions.add`，成功后删除并清 `sessionSaveErrors`；失败保留标记并置错误位，后续 UI 可提示重试（`retrySaveSessions` 等接 UI 时再加）。
+5. **`ensureLoaded` 合并并发读取**，并在读取期间被重命名时保留最新摘要（`sameSummary`），避免旧读取覆盖新标题。
+6. **收尾逻辑暂缓**：原实现加载时会把 `pending`/`streaming` 的回复收尾成 `stopped`，这依赖 `reply.ts` 的 `settleReply`（`P2-04`）与 `branches.ts` 的 `normalizeSession`（`P2-03`）。当前还没有流式写入路径，先原样加载；`remove` 同理只 abort、不 `waitForIdle`，等 `P2-04` 接。
+7. **重命名分两条路径**：已缓存 → 更新缓存+摘要并 `persist`；未缓存 → 只改摘要并直接 `db.renameSession`（不必为此加载整条会话）。
+
+**验证记录**
+
+- `pnpm test`：25 个用例 / 6 个文件全过，其中 session 7 个——初始化降序、select 拒绝未知 id 并加载详情、已加载重命名（列表/缓存/DB 同步）、未加载重命名（只写 DB）、`remove` 清空列表/缓存/activeId/DB、缓存 7 条只留 5 条且 `s1`/`s2` 被淘汰、`newChat` 不清缓存。
+- `pnpm type` / `lint` / `format:check` / `build` 全部 exit 0；入口体积未变（425.88 kB，store 尚未被界面引用）。
+- 浏览器（dev 8097）：外壳渲染、侧栏 240、欢迎语、version meta 均正常，控制台 0 报错。
+
+**遗留**
+
+- 「加载时收尾 pending/streaming」「删除前排空流」等 `P2-04` 接入 stream store 后补。
+- `retrySaveSessions`（保存失败后的全局重试）等接 UI 时加。
+- 会话列表 UI 与「删除全部对话」编排分别在 Phase 3 与 `P2-05`。
