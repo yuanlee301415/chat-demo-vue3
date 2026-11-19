@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 
+import './app/theme.css'
 import './app/app.css'
 import App from './app/App.vue'
 import AppIcon from './components/base/AppIcon.vue'

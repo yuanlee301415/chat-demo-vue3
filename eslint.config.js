@@ -37,7 +37,13 @@ export default defineConfigWithVueTs(
   {
     // 内联渲染的 HTML 只来自受控的本地资源，逐文件豁免并在源码处注明原因。
     name: 'app/v-html-exemptions',
-    files: ['src/components/base/AppIcon.vue'],
+    files: [
+      'src/components/base/AppIcon.vue',
+      // Prism / KaTeX / Mermaid 的输出：高亮前转义源码，KaTeX 默认不信任命令，Mermaid 用 strict 且转义图片标签。
+      'src/components/markdown/CodeBlock.vue',
+      'src/components/markdown/MathFormula.vue',
+      'src/components/markdown/MermaidDiagram.vue',
+    ],
     rules: { 'vue/no-v-html': 'off' },
   },
 )

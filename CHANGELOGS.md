@@ -1292,3 +1292,104 @@
 
 ---
 
+
+## Phase 4 步骤清单
+
+按计划 §6 的建议收成 3 步（前三个建议项合并为 `P4-01`）；末行 `P4-99` 是 §5.3 固定的阶段门禁：
+
+| 步骤 | 内容 |
+|---|---|
+| `P4-01` | Markdown + AST 渲染器 → CodeBlock / Math / Mermaid → ReplyArea 时间线与引用（按箭头顺序分三段落地） |
+| `P4-02` | 搜索面板 / 来源卡片 |
+| `P4-03` | 设置弹窗（主题 / 位置 / API Key / 删除全部） |
+| `P4-99` | Phase 4 门禁：Markdown 输出与旧版一致；设置项全部可用 |
+
+---
+
+## P4-01 Markdown + AST 渲染器 → 代码块/公式/Mermaid → ReplyArea 时间线与引用
+
+- 状态：已提交（`git log --grep P4-01`）
+- 开始：2026-11-19 16:12
+
+**计划与目标**
+
+- 目标：助手回复的思考、过程性说明与正文统一走「节流 → mdast → Vue VNode」链路；代码块按需加载 Prism 语言包、公式按需加载 KaTeX、Mermaid 按需渲染并支持「图形/代码」切换；思考与工具步骤按旧版时间线呈现，正文 `[citation:N]` 渲染为可点角标。
+- 范围：
+  - 新增 `src/services/markdown/{parse,url,highlight,katex,mermaid}.ts` 与单测；
+  - 新增 `src/components/markdown/{MarkdownContent.vue,MarkdownAstRenderer.ts,MarkdownLink.vue,CodeBlock.vue,MathFormula.vue,MermaidDiagram.vue,useThrottleMarkdownRender.ts}` 与 `markdown.css`、`highlight.css`；
+  - 新增 `src/components/messages/{ReplyArea.vue,useReplyView.ts,PageLink.vue}`、`src/components/search/{CitationLink,SiteLogo,FallbackImage}.vue`；
+  - 重写 `AssistantMessage.vue` 接入上述组件；`main.ts` 引入 `app/theme.css`，`App.vue` 同步 `dark` 类与 `data-ds-dark-theme`；
+  - `package.json` 增加 mdast/micromark 依赖，`eslint.config.js` 增加 Prism/KaTeX/Mermaid 的 `v-html` 定点豁免。
+- 不做：搜索面板与「查看全部」入口（P4-02）；设置弹窗与错误提示里的「更换 API Key / 充值」动作（P4-03）；用户消息气泡的 Markdown（旧版即纯文本）；移动端与语音。
+- 验收：
+  1. Markdown 输出与旧版一致：标题/列表/任务项/表格/引用/行内代码/链接/删除线（保留 `~~`）/脚注原文/`<br>` 与其余 HTML 按文本。
+  2. 代码块：常用语言高亮、未知语言纯文本、复制成功/失败提示；mermaid 块默认图形、可切代码。
+  3. 公式：行内 `$x$` 与块级 `$$…$$`；加载失败或语法错误时退回原文，流式未写完保留上次结果。
+  4. 时间线：思考、搜索、打开网页、页内查找、读链接按 `buildReplyView` 顺序渲染；思考区标题与用时、进行中动画与停止态正确。
+  5. 引用：正文 `[citation:N]` 显示角标并可新标签打开对应来源。
+  6. `pnpm type|lint|format:check|test|build` 全绿；无头 Chrome 无控制台报错。
+
+**关键决策始末**
+
+1. **解析依赖沿用旧项目版本**：`mdast-util-from-markdown@2.0.3`、`mdast-util-gfm@3.1.0`、`mdast-util-math@3.0.0`、`mdast-util-find-and-replace@3.0.2`、`micromark-extension-gfm@3.0.0`、`micromark-extension-llm-math@3.1.0`，保证同一段 Markdown 产出的 AST 与旧版一致。`@types/mdast` 钉在 `4.0.4`：先装 `4.0.3` 时依赖链另带一份 `4.0.4`，两份 `Root` 类型互不兼容，TS 直接报错。
+2. **AST 用 render function 递归**：块级与行内节点互相嵌套，拆成多个递归 `.vue` 会引入自引用组件和大量插槽转发；`MarkdownAstRenderer.ts` 用 `h()` 直接递归，叶子节点仍是独立 SFC（`CodeBlock` / `MathFormula` / `MermaidDiagram` / `MarkdownLink` / `CitationLink`），职责边界不变。
+3. **组件改名 `MarkdownContent` / `MarkdownLink`**：`vue/multi-word-component-names` 不接受单词组件名，沿用 P3-01 `Welcome → WelcomeView` 的处理；计划 §4 里的 `Markdown.vue` / `Link.vue` 名称据此调整，结构不变。
+4. **设计令牌整体搬 `app/theme.css`**：Markdown、代码块、时间线的颜色全部走 `--dsw-*` 令牌；`App.vue` 把 `dark` / `light` 类与 `data-ds-dark-theme` 同步到 body（`highlight.css` 依赖前两个类，令牌依赖第三个属性），NaiveUI 仍由 `darkTheme` 控制。
+5. **`v-html` 只豁免三个渲染器**：Prism 高亮结果、KaTeX 的 `renderToString`、Mermaid 的 SVG 分别写回 DOM，逐文件豁免并注明来源；Mermaid 保持 `securityLevel: 'strict'` 且转义 `<img>` / `<image>`，Markdown 里的普通 HTML 按文本渲染，链接与图片地址都过 `sanitizeUrl`。
+6. **流式性能两条约束**：`useReplyView` 在来源元数据未变时复用旧数组，避免每帧文本增量都让 `toMdAst` 重解析引用；`useThrottleMarkdownRender` 用 `flush: 'post'` 测量提交后的渲染耗时（对应旧版 `useEffect([output])`），按耗时 ×2、上限 2s 节流。
+7. **`AssistantMessage` 只做组合**：时间线交给 `ReplyArea`，正文与模板答复用 `MarkdownContent`，`describeReply` 统一错误、拒绝与模板文案；用户消息保持纯文本（与旧版一致）。
+8. **偏差**：旧版 `Markdown` 的 `cacheKey` / `onUpdate` 不移植——Vue 侧按依赖失效，不需要强制重挂；滚动跟随仍由 `MessageList` 的既有 watch 负责，本步未改。搜索行点击打开面板、「查看全部」与底部来源汇总留 `P4-02`；错误提示里的「更换 API Key / 充值」留 `P4-03`。
+9. **包体**：mdast 解析器进主包，入口 `548.69 kB → 681.76 kB`（gzip `174.01 → 213.21 kB`）；Mermaid / KaTeX / Prism 语言包仍是独立 chunk，Phase 5 再按需拆解析器。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `test` / `build` / `docs:fields` 全部 exit 0；`test` 135 例（新增 `parse` 6 例、`url` 3 例）。
+- `pnpm build`：3922 modules；入口 `681.76 kB`（gzip `213.21 kB`）、CSS `40.51 kB`；KaTeX / Mermaid / Prism 语言包各自分块。
+- 浏览器（dev 8097，预置一条含思考、搜索、引用与完整 Markdown 的会话）：
+  - 正文：`h1` 1 个、表格 1 个、任务项 2 个、引用块 1 个、分隔线 1 个，示例链接 `https://example.com/` 可点；行内代码 1 个。
+  - 代码块：语言名 `ts`、Prism token 10 个、「复制」按钮存在；Mermaid 块默认 SVG，点「代码」切到 `graph TD` 原文、点「图表」切回。
+  - 公式：行内 `E = mc^2` 与块级 `1/2` 共 2 个 KaTeX 节点。
+  - 时间线：标题「已思考（用时 2 秒）」、思考文本「先思考一下 重点。」、搜索行「已阅读 1 个网页」、来源缩略图 1 个。
+  - 引用：角标文本 `1`，`role="link"`、`tabindex="0"`。
+  - 主题：浅色时 body 无 `dark` / `data-ds-dark-theme`，正文 `rgb(15, 17, 21)`；深色时有标记、`--dsw-alias-label-primary` 为 `#f9fafb`、正文 `rgb(249, 250, 251)`，Mermaid 重绘、代码高亮保留。
+  - 控制台 **0 报错 / 0 警告**；截图存临时目录（`dsh-p4-01-*.png`），未入库。
+
+**遗留**
+
+- 入口 chunk `681.76 kB` 超过 Vite 警告阈值，Phase 5 拆包（mdast 解析器懒加载或按需加载）。
+- 搜索面板与来源卡片悬浮预览在 `P4-02`：当前引用角标直接新标签打开，搜索行不可点击，底部没有来源汇总。
+- 错误提示里的「更换 API Key / 充值」在 `P4-03`：`describeReply` 已接入，但还没有设置弹窗可打开。
+- 计划 §4 的目标文件名与实现不一致（`MarkdownContent.vue` / `MarkdownLink.vue`，新增 `PageLink.vue`），`P4-99` 统一同步。
+- 公式 / 语言包的「加载失败」路径与剪贴板失败 toast 未在无头环境构造（代码有 fallback），流式节流的极端耗时未压测。
+
+**关键决策始末**
+
+1. **解析器沿用 mdast/micromark 管道**：旧版就是 `micromark → mdast → VNode`，照搬才能满足「输出与旧版一致」；新增 6 个单职责包（`mdast-util-{from-markdown,gfm,math,find-and-replace}`、`micromark-extension-{gfm,llm-math}`）与 1 个类型包，版本与旧项目对齐。备选：`markdown-it` 需要自写 citation/删除线/脚注降级逻辑，反而引入新差异。
+2. **渲染器用 `defineComponent` + `h()`**：mdast 是递归树，模板无法表达；沿用旧 `MarkdownAstRenderer` 的节点映射。`sources`/`disableLink` 在解析期一次处理完，渲染期不再读原文。
+3. **`v-html` 只给 Prism/KaTeX/Mermaid 三处定点豁免**：Prism 先转义源码再高亮，KaTeX 默认不信任命令，Mermaid 用 `securityLevel: 'strict'` 且转义图片标签；其余 Markdown HTML 按文本渲染（`ds-markdown-html`），与旧版一致。
+4. **主题标记在 `App.vue` 统一同步**：`markdown.css` 的 `--dsw-*` token 与 `highlight.css` 的 `body.dark` 选择器需要 `body.dark` 和 `data-ds-dark-theme`；只在根组件 `watchEffect` 维护一份，避免每个组件各写一份。
+5. **ReplyArea 先去掉搜索面板交互**：点击搜索行/「查看全部」依赖 `P4-02` 的 `SearchPanel`；本步只渲染只读行与缩略图，打开网页超 5 条时暂不显示入口。
+6. **模板答复与拒绝正文改走 `describeReply`**：Markdown 化后它们必须与模型正文共用同一条渲染链路；`describeReply` 契约已由 P3 单测覆盖，这里只消费不改。
+7. **保留库级懒加载单例（偏差）**：`katex.ts`/`mermaid.ts` 的 Promise 缓存与 Mermaid 渲染队列属于第三方库单例（全局配置必须串行），不是会话运行态；不放进 `useRuntimeStore`，避免展示组件反向依赖聊天 store。
+
+**验证记录**
+
+- 命令：`pnpm type` / `lint` / `format:check` / `test`（135 例 / 23 文件）/ `build` / `docs:fields` → **全部 exit 0**。
+- 构建：入口 `index-Cy8tkbzY.js` 681.76 kB（gzip 213.21 kB），CSS 40.51 kB；KaTeX / Mermaid / Prism 仍为独立 chunk（首屏不加载）。
+- 无头 Chrome（dev 8097，预置一条 IndexedDB 会话）：
+  - Markdown：`h2`、表头/表体 4 格、任务项 `☑`/`□`、引用块、软换行 `<br>`；删除线输出 `~~文字~~` 文本且无 `<del>`；`<b>` 保留为 `ds-markdown-html` 文本、页面无 `<b>` 元素；脚注定义按原文显示；图片渲染为 `https://example.com/pic.png` 链接。
+  - 代码块 3 个：`ts` 6 个 Prism token、按钮「复制」；未知语言 `foobar` 0 token 且 `<b>` 已转义；mermaid「图表 → 代码 → 图表」切换后 SVG 恢复。
+  - 公式：行内、块级各 1（`.katex` 计数 2，含 display 内层）；坏公式 `\frac{1}{` 退回原文。
+  - 引用：正文 1 个角标（`role="link"`）。
+  - 时间线：标题「已思考（用时 3 秒）」、搜索行「搜索到 1 个网页」+ 站点缩略图、打开网页「浏览 1 个页面 Vue 3 文档」、页内查找 chip `composition`；思考区无链接。
+  - 深色：`body.dark` + `data-ds-dark-theme`；切浅色后 `--dsw-alias-label-primary` 为 `#0f1115`、Mermaid 重绘、角标仍在。
+  - 控制台 **0 报错 / 0 警告**、无未捕获异常。截图存临时目录（`dsh-p4-01.png`），未入库。
+
+**遗留**
+
+- 搜索行点击打开面板、来源卡片悬停预览（`SourceCard`/`HoverCard`）、打开网页超 5 条的「查看全部」留给 `P4-02`。
+- 错误提示里的「更换 API Key」「前往充值」动作依赖设置弹窗，留给 `P4-03`。
+- 流式下的 Markdown 节流与「公式/代码块写到一半」的保留逻辑只做了代码移植，未在真实 SSE 流下逐帧验证（流式框架由 `P3-05` 覆盖）。
+- 入口 chunk 681.76 kB 超 Vite 告警阈值，Phase 5 统一拆包。
+- 用户消息气泡仍为纯文本（与旧版一致）。
+

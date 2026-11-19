@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton, NConfigProvider, NDialogProvider, NLayout, NLayoutContent, NLayoutSider, NMessageProvider, NSpin, darkTheme, dateZhCN, zhCN } from 'naive-ui'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watchEffect } from 'vue'
 
 import SessionView from '../components/session/SessionView.vue'
 import WelcomeView from '../components/session/WelcomeView.vue'
@@ -28,6 +28,19 @@ const activeError = computed(() => session.activeId !== null && session.sessionL
 
 /** 是否有会话落盘失败；有则顶部提示并提供重试。 */
 const saveError = computed(() => Object.values(session.sessionSaveErrors).some(Boolean))
+
+/** 主题 token 与代码高亮样式依赖 body 上的标记，跟着实际生效的深浅色同步。 */
+watchEffect(() => {
+  const body = document.body
+  body.classList.toggle('dark', isDark.value)
+  body.classList.toggle('light', !isDark.value)
+  if (isDark.value) {
+    body.setAttribute('data-ds-dark-theme', 'dark')
+  } else {
+    body.removeAttribute('data-ds-dark-theme')
+  }
+  document.documentElement.style.colorScheme = isDark.value ? 'dark' : 'light'
+})
 
 onMounted(() => {
   void session.init()

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { NButton, useMessage } from 'naive-ui'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed } from 'vue'
 
 import { useI18n } from '../../i18n'
-import { canContinueReply, getReplyText } from '../../services/chat/reply'
+import { describeReply } from '../../services/chat/describe'
+import { canContinueReply } from '../../services/chat/reply'
 import type { AssistantMessage } from '../../services/chat/types'
-import { buildReplyView, getAreaTitle, type Step } from '../../services/chat/view'
 import { useStreamStore } from '../../stores/stream'
+import MarkdownContent from '../markdown/MarkdownContent.vue'
+import ReplyArea from './ReplyArea.vue'
+import { useReplyView } from './useReplyView'
 
 const props = defineProps<{
   /** 所属会话 id */
@@ -21,81 +24,32 @@ const { t } = useI18n()
 const stream = useStreamStore()
 const toast = useMessage()
 
-/** 当前时间，流式时每秒刷新用于思考用时。 */
-const now = ref(Date.now())
-let timer: ReturnType<typeof setInterval> | undefined
-
-/** 开始每秒刷新。 */
-const startTimer = () => {
-  if (timer === undefined) {
-    timer = setInterval(() => {
-      now.value = Date.now()
-    }, 1000)
-  }
-}
-
-/** 停止刷新。 */
-const stopTimer = () => {
-  if (timer !== undefined) {
-    clearInterval(timer)
-    timer = undefined
-  }
-}
-
-watch(
+/** 由回复推导时间线、正文与来源；来源不变时复用数组，避免流式重解析引用。 */
+const view = useReplyView(
+  () => props.message,
   () => props.streaming,
-  (streaming) => {
-    if (streaming) {
-      startTimer()
-    } else {
-      stopTimer()
-      now.value = Date.now()
-    }
-  },
-  { immediate: true },
 )
 
-onBeforeUnmount(stopTimer)
+/** 结束后的提示：模板答复按正文展示，其余为错误/拒绝文案。 */
+const notice = computed(() => (props.streaming ? null : describeReply(props.message)))
 
-/** 由回复推导时间线与正文。 */
-const view = computed(() => buildReplyView(props.message, props.streaming))
+/** 安全拒绝：下发的思考与正文按协议丢弃，只显示模板答复。 */
+const refused = computed(() => props.message.stopReason === 'refusal')
 
-/** 是否已经有正文；没有时标题算「进行中」。 */
-const hasResponse = computed(() => view.value.answer !== null)
+/** 正文；模板答复由 notice 统一展示。 */
+const answer = computed(() => (refused.value ? null : view.value.answer))
 
-/** 思考区标题；没开启思考且没有步骤时为 null。 */
-const title = computed(() => {
-  const thinking = props.message.thinking ?? view.value.steps.some((step) => step.type === 'thinking')
-  return thinking ? getAreaTitle(view.value, props.streaming, now.value, hasResponse.value) : null
-})
+/** 模板答复的正文。 */
+const template = computed(() => (notice.value?.presentation === 'response' ? notice.value.text : null))
 
-/** 思考块的纯文本内容。 */
-const thinkingText = (step: Extract<Step, { type: 'thinking' }>) => step.blocks.map((block) => block.thinking).join('')
+/** 错误提示文案；模板答复不算错误。 */
+const errorText = computed(() => (notice.value !== null && notice.value.presentation !== 'response' ? notice.value.text : null))
 
-/** 工具步骤的一行摘要；文案复用已有 key。 */
-const toolText = (step: Step): string | null => {
-  switch (step.type) {
-    case 'search':
-      return `${t('toolSearchIntro')} ${step.queries.join('、')}${step.results.length > 0 ? ` · ${t('messageSearchSummaries', { count: step.results.length })}` : ''}`
-    case 'open':
-      return t('messageSearchResults', { count: step.pages.length })
-    case 'read_link':
-      return t('messageSearchResults', { count: step.links.length })
-    case 'find':
-      return `${t('searchResult')}：${step.patterns.map((pattern) => pattern.pattern).join('、')}`
-    default:
-      return null
-  }
-}
+/** 可复制的回答正文；没有正文时退回提示文案。 */
+const copyText = computed(() => [answer.value?.text, template.value].filter((part): part is string => typeof part === 'string' && part !== '').join('\n\n') || notice.value?.text || '')
 
-/** 错误文案：优先本地化文案，回退服务端原文。 */
-const errorText = computed(() => {
-  const error = props.message.error
-  if (error === undefined) {
-    return null
-  }
-  return error.localMessage === undefined ? error.message : t(error.localMessage.key, error.localMessage.params)
-})
+/** 是否已经有回答内容；没有时思考区标题算「进行中」。 */
+const hasResponse = computed(() => copyText.value !== '')
 
 /** 是否允许继续生成；与 store 的判定同源。 */
 const canContinue = computed(() => canContinueReply(props.message))
@@ -103,7 +57,7 @@ const canContinue = computed(() => canContinueReply(props.message))
 /** 复制正文；非安全上下文可能失败，失败给提示。 */
 const copy = async () => {
   try {
-    await navigator.clipboard.writeText(getReplyText(props.message))
+    await navigator.clipboard.writeText(copyText.value)
     toast.success(t('copy'))
   } catch {
     toast.error(t('copyFailed'))
@@ -123,34 +77,22 @@ const continueReply = () => {
     stream.continueReply(props.sessionId, props.message.id)
   }
 }
-
-/** 失败后重试：按重新生成处理，产生新的回答版本。 */
-const retry = () => {
-  if (!props.streaming) {
-    stream.regenerate(props.sessionId, props.message.id)
-  }
-}
 </script>
 
 <template>
   <div class="message message--assistant">
-    <div v-if="title" class="thinking-title">{{ title }}</div>
+    <ReplyArea v-if="!refused" :message="message" :view="view" :streaming="streaming" :has-response="hasResponse" />
 
-    <template v-for="(step, index) in view.steps" :key="index">
-      <pre v-if="step.type === 'thinking'" class="thinking">{{ thinkingText(step) }}</pre>
-      <p v-else-if="step.type === 'text'" class="preamble">{{ step.markdown }}</p>
-      <p v-else-if="toolText(step)" class="tool">{{ toolText(step) }}</p>
-    </template>
+    <MarkdownContent v-if="answer !== null" class="content" :content="answer.markdown" :loading="streaming" :sources="view.sources" />
+    <MarkdownContent v-if="template !== null" class="content" :content="template" :loading="false" />
+    <p v-else-if="answer === null && !streaming" class="muted">{{ t('messageThinkStopped') }}</p>
 
-    <p v-if="view.answer" class="answer">{{ view.answer.text }}</p>
-    <p v-else-if="message.status === 'stopped'" class="muted">{{ t('messageThinkStopped') }}</p>
-
-    <p v-if="errorText" class="error">{{ errorText }}</p>
+    <p v-if="errorText !== null" class="error" role="alert">{{ errorText }}</p>
 
     <div class="actions">
-      <NButton v-if="message.error" text size="tiny" :disabled="streaming" @click="retry">{{ t('retry') }}</NButton>
-      <NButton text size="tiny" @click="copy">{{ t('copy') }}</NButton>
-      <NButton text size="tiny" :disabled="streaming" @click="regenerate">{{ t('regenerate') }}</NButton>
+      <NButton v-if="message.error" text size="tiny" :disabled="streaming" @click="regenerate">{{ t('retry') }}</NButton>
+      <NButton v-if="copyText !== ''" text size="tiny" @click="copy">{{ t('copy') }}</NButton>
+      <NButton text size="tiny" :disabled="streaming || refused" @click="regenerate">{{ t('regenerate') }}</NButton>
       <NButton v-if="canContinue" text size="tiny" :disabled="streaming" @click="continueReply">{{ t('continueGenerating') }}</NButton>
     </div>
   </div>
@@ -162,35 +104,6 @@ const retry = () => {
   flex-direction: column;
   gap: 8px;
   max-width: 80%;
-}
-
-.thinking-title {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.thinking {
-  margin: 0;
-  padding: 8px 12px;
-  overflow-x: auto;
-  color: #6b7280;
-  font-size: 12px;
-  white-space: pre-wrap;
-  background: rgb(128 128 128 / 8%);
-  border-radius: 8px;
-}
-
-.preamble,
-.answer {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.tool {
-  margin: 0;
-  color: #6b7280;
-  font-size: 13px;
 }
 
 .muted {
