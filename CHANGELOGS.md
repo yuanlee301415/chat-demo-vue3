@@ -725,3 +725,38 @@
 
 ---
 
+## P2-04b reply 移植
+
+- 状态：已提交（`git log --grep P2-04b`）
+- 开始：2026-11-19 13:51
+
+**计划与目标**
+
+- 目标：把 `reply.ts` 的纯逻辑搬过来并补单测——流式事件合并、回复收尾、续写判定、上下文裁剪（`toRequestMessages`）。
+- 范围：`src/services/chat/reply.ts`、`reply.test.ts`。
+- 不做：不接 store/UI（`P2-04c`）；不改逻辑。
+- 验收：
+  1. `applyEvent` 覆盖文本/思考/引用增量、工具调用、`message_start`/`message_delta`。
+  2. `settleReply` 覆盖思考收尾与安全拒绝丢弃正文。
+  3. `toRequestMessages` 覆盖历史裁剪、`latest_reminder` 去重、附件文件块、`read_link` 签名门控、prefill 空判。
+  4. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **逐字移植，只改 import**：`reply.ts` 与原实现一致（去掉 `.js` 后缀），保证后续 `stream` store 的行为可对照。
+2. **测试按「公开函数 + 关键分支」组织**：`applyEvent` 5 组、`settleReply` 2 组、`canContinueReply` 1 组、上下文 6 组，共 16 个用例。
+3. **`toRequestMessages` 的边界全部覆盖**：模板/拒绝/空回答不进上下文；`latest_reminder` 内容相同不重复；缺签名的 `read_link` 调用与结果一起丢弃；空白 prefill 不发送。
+4. **不接 UI**：`toRequestMessages` 的调用方在 `P2-04c` 的 stream store 里。
+
+**验证记录**
+
+- `pnpm test`：**98 个用例 / 14 个文件**全过，其中 `reply.test.ts` 16 个。
+- 覆盖点：文本/思考/签名/引用增量与临时索引、客户端工具调用关闭续写、`message_start`/`message_delta` 用量与结束原因；拒绝时丢弃思考与正文只留工具块；`stopped` 与 `done+max_tokens` 可续写；`latest_reminder`、附件块顺序、`read_link` 签名门控、prefill 空判。
+- `pnpm type` / `lint` / `format:check` / `build` 全绿；bundle 体积不变（尚未被界面引用）。
+
+**遗留**
+
+- `stream` store 与 session store 的收尾/排空流集成在 `P2-04c`。
+
+---
+
