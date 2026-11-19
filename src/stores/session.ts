@@ -96,6 +96,15 @@ export const useSessionStore = defineStore('session', () => {
       })
   }
 
+  /** 重试所有落盘失败的会话；成功后退回正常状态。 */
+  const retrySave = () => {
+    for (const id of Object.keys(sessionSaveErrors.value)) {
+      if (sessionSaveErrors.value[id] && sessionCache.value[id] !== undefined) {
+        persist(id)
+      }
+    }
+  }
+
   /** 初始化会话列表；并发调用共享同一次加载。 */
   const init = (): Promise<void> => {
     if (ready.value) {
@@ -259,5 +268,6 @@ export const useSessionStore = defineStore('session', () => {
     remove,
     ensureLoaded,
     persist,
+    retrySave,
   }
 })

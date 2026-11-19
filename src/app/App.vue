@@ -26,6 +26,9 @@ const activeSession = computed(() => (session.activeId === null ? undefined : se
 /** 会话详情加载失败标记。 */
 const activeError = computed(() => session.activeId !== null && session.sessionLoadErrors[session.activeId] === true)
 
+/** 是否有会话落盘失败；有则顶部提示并提供重试。 */
+const saveError = computed(() => Object.values(session.sessionSaveErrors).some(Boolean))
+
 onMounted(() => {
   void session.init()
 })
@@ -42,6 +45,11 @@ onMounted(() => {
           </NLayoutSider>
 
           <NLayoutContent class="content">
+            <div v-if="saveError" class="save-error" role="alert">
+              <span>{{ t('sessionSaveFailed') }}</span>
+              <NButton size="small" @click="session.retrySave()">{{ t('retry') }}</NButton>
+            </div>
+
             <div v-if="!session.ready" class="state" role="status" aria-live="polite">
               <NSpin v-if="!session.initError" size="small" />
               <span>{{ session.initError ? t('sessionListLoadFailed') : t('sessionLoading') }}</span>
@@ -82,5 +90,16 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: #6b7280;
+}
+
+.save-error {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  color: #8a4b00;
+  font-size: 13px;
+  background: #fff4e5;
 }
 </style>

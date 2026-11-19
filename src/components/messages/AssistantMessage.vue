@@ -123,6 +123,13 @@ const continueReply = () => {
     stream.continueReply(props.sessionId, props.message.id)
   }
 }
+
+/** 失败后重试：按重新生成处理，产生新的回答版本。 */
+const retry = () => {
+  if (!props.streaming) {
+    stream.regenerate(props.sessionId, props.message.id)
+  }
+}
 </script>
 
 <template>
@@ -141,6 +148,7 @@ const continueReply = () => {
     <p v-if="errorText" class="error">{{ errorText }}</p>
 
     <div class="actions">
+      <NButton v-if="message.error" text size="tiny" :disabled="streaming" @click="retry">{{ t('retry') }}</NButton>
       <NButton text size="tiny" @click="copy">{{ t('copy') }}</NButton>
       <NButton text size="tiny" :disabled="streaming" @click="regenerate">{{ t('regenerate') }}</NButton>
       <NButton v-if="canContinue" text size="tiny" :disabled="streaming" @click="continueReply">{{ t('continueGenerating') }}</NButton>
