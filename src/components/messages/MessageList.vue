@@ -54,6 +54,7 @@ const selectVersion = (id: string) => {
   stream.selectVersion(props.session.id, id)
 }
 
+watch(() => props.session, scrollToBottom)
 watch(() => props.session.messages.length, scrollToBottom)
 onMounted(scrollToBottom)
 </script>
@@ -75,7 +76,6 @@ onMounted(scrollToBottom)
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  scroll-behavior: smooth;
 }
 
 .list__inner {
