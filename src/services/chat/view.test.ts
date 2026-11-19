@@ -4,6 +4,7 @@ import type { ServerToolUseBlock, TextCitation, WebSearchToolResultBlock } from 
 import type { AssistantMessage, ReplyBlock } from './types'
 import { buildReplyView, getAreaTitle, getTotalThinkingSeconds } from './view'
 
+/** 构造一条助手消息。 */
 const reply = (blocks: ReplyBlock[], status: AssistantMessage['status'] = 'done'): AssistantMessage => ({
   id: 'r1',
   role: 'assistant',
@@ -14,6 +15,7 @@ const reply = (blocks: ReplyBlock[], status: AssistantMessage['status'] = 'done'
   blocks,
 })
 
+/** 构造一次搜索工具调用。 */
 const searchUse = (id: string, queries: string[]): ServerToolUseBlock => ({
   type: 'server_tool_use',
   id,
@@ -23,6 +25,7 @@ const searchUse = (id: string, queries: string[]): ServerToolUseBlock => ({
   kind: 'search',
 })
 
+/** 构造一次搜索工具结果。 */
 const searchResult = (toolUseId: string, url: string): WebSearchToolResultBlock => ({
   type: 'web_search_tool_result',
   tool_use_id: toolUseId,
@@ -41,6 +44,7 @@ const searchResult = (toolUseId: string, url: string): WebSearchToolResultBlock 
   ],
 })
 
+/** 构造一条正文引用。 */
 const citation = (url: string, title: string): TextCitation => ({
   type: 'web_search_result_location',
   url,

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { clearAllSessions, deleteSession, loadFile, loadSession, loadSessionSummaries, renameSession, saveFiles, saveSession } from './db'
 import type { FileAttachment, Session } from './types'
 
+/** 构造一个本地附件引用。 */
 const attachment = (id: string): FileAttachment => ({
   id,
   serverId: null,
@@ -14,6 +15,7 @@ const attachment = (id: string): FileAttachment => ({
   mimeType: 'text/plain',
 })
 
+/** 构造带可选附件的最小会话。 */
 const session = (id: string, files: FileAttachment[] = []): Session => ({
   id,
   title: `会话 ${id}`,
@@ -22,6 +24,7 @@ const session = (id: string, files: FileAttachment[] = []): Session => ({
   messages: files.length === 0 ? [] : [{ id: `${id}-msg`, role: 'user', content: '你好', files, createdAt: 1 }],
 })
 
+/** 构造一个待写入的原件。 */
 const storedBlob = (text: string) => ({ id: 'blob', blob: new Blob([text]) })
 
 beforeEach(async () => {

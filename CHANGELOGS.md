@@ -854,3 +854,39 @@
 
 - 测试 helper 的 12 条注释与 jsdoc 规则收紧在 `DOC-05`。
 - `DOC-06` 做完整门禁与浏览器冒烟。
+
+---
+
+## DOC-05 测试 helper 与规则收紧
+
+- 状态：已提交（`git log --grep DOC-05`）
+- 开始：2026-11-19 11:20
+
+**计划与目标**
+
+- 目标：补齐测试内 12 个具名 helper 的 JSDoc，把 `jsdoc/*` 从 `warn` 收紧为 `error`，并给 `lint` 加 `--max-warnings=0`，让注释规范真正成为门禁。
+- 范围：`branches.test.ts`、`db.test.ts`、`describe.test.ts`、`view.test.ts`、`session.test.ts`、`eslint.config.js`、`package.json`。
+- 不做：不给 `it(...)` 回调写注释（匿名回调不在范围）；不改测试逻辑；不引 lint-staged。
+- 验收：
+  1. `pnpm lint` 0 error / 0 warning（`--max-warnings=0`），12 个 helper 均有 JSDoc。
+  2. `pnpm docs:fields` 仍为 0。
+  3. `type|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **`jsdoc/*` 从 `warn` 收紧为 `error`，`lint` 加 `--max-warnings=0`**：注释缺失由提示变成门禁；`--max-warnings=0` 同时拦住其他规则新冒出的警告。
+2. **12 个测试 helper 用脚本按「行号 + 期望内容」插入**；`it(...)` 回调不写注释（匿名回调不在规则上下文里）。
+3. **补注释与收紧规则放在同一步提交**：先补后收紧，提交时 CI 已是绿的，不存在「中间状态变红」的窗口。
+4. **不引 lint-staged/husky**：提交门禁由 `pnpm lint` 承担，钩子等 Phase 5 有需要再加。
+
+**验证记录**
+
+- `pnpm lint`：**0 error / 0 warning**、exit 0（脚本已带 `--max-warnings=0`，jsdoc 规则为 `error`）。
+- `pnpm docs:fields`：0。
+- `pnpm type` / `format:check` / `test`（60 例）/ `build` 全部通过。
+- 12 个 helper 均有 JSDoc；若缺任意一条，`jsdoc/require-jsdoc` 会以 error 拦截（规则已生效）。
+
+**遗留**
+
+- 提交钩子/CI 串联留到 Phase 5。
+- `DOC-06` 做完整门禁、浏览器冒烟与 grep 验收。

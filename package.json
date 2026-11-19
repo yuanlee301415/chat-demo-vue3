@@ -14,7 +14,7 @@
     "preview": "vite build && vite preview",
     "preview:dist": "vite preview",
     "type": "vue-tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "lint": "eslint . --cache",
+    "lint": "eslint . --cache --max-warnings=0",
     "lint:fix": "eslint . --cache --fix",
     "docs:fields": "node scripts/check-field-docs.mjs",
     "format": "prettier --write .",

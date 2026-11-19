@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { appendBranch, buildMessageVersions, getVisibleMessages, normalizeSession, selectVersion } from './branches'
 import type { Message, Session } from './types'
 
+/** 构造一条用户消息；parentId 默认挂在根下。 */
 const user = (id: string, parentId: string | null = null, selectedChildId?: string): Message => ({
   id,
   role: 'user',
@@ -13,6 +14,7 @@ const user = (id: string, parentId: string | null = null, selectedChildId?: stri
   selectedChildId,
 })
 
+/** 构造一条助手消息，默认已完成。 */
 const reply = (id: string, parentId: string | null = null, selectedChildId?: string): Message => ({
   id,
   role: 'assistant',
@@ -25,6 +27,7 @@ const reply = (id: string, parentId: string | null = null, selectedChildId?: str
   selectedChildId,
 })
 
+/** 构造一个最小会话。 */
 const session = (messages: Message[], rootMessageId?: string | null): Session => ({
   id: 's',
   title: '会话',

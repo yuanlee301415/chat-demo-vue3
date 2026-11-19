@@ -7,6 +7,7 @@ import { clearAllSessions, loadSession, saveSession } from '../services/chat/db'
 import type { Session } from '../services/chat/types'
 import { useSessionStore } from './session'
 
+/** 构造一个最小会话（指定更新时间用于排序）。 */
 const session = (id: string, updatedAt: number): Session => ({
   id,
   title: `会话 ${id}`,

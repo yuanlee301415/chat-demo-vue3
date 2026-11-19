@@ -42,19 +42,19 @@ export default defineConfigWithVueTs(
     rules: {
       /** 具名函数必须有 JSDoc；匿名回调与 computed getter 不在范围内。 */
       'jsdoc/require-jsdoc': [
-        'warn',
+        'error',
         {
           contexts: ['FunctionDeclaration', 'VariableDeclarator > ArrowFunctionExpression', 'VariableDeclarator > FunctionExpression', 'MethodDefinition > FunctionExpression'],
           checkConstructors: false,
         },
       ],
-      'jsdoc/require-description': 'warn',
-      'jsdoc/check-param-names': 'warn',
-      'jsdoc/check-tag-names': 'warn',
+      'jsdoc/require-description': 'error',
+      'jsdoc/check-param-names': 'error',
+      'jsdoc/check-tag-names': 'error',
       /** 类型由 TS 提供，JSDoc 里不重复写。 */
-      'jsdoc/no-types': 'warn',
-      'jsdoc/require-param-description': 'warn',
-      'jsdoc/require-returns-description': 'warn',
+      'jsdoc/no-types': 'error',
+      'jsdoc/require-param-description': 'error',
+      'jsdoc/require-returns-description': 'error',
     },
   },
 

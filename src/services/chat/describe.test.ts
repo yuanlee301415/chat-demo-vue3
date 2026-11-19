@@ -15,6 +15,7 @@ const base: AssistantMessage = {
   blocks: [],
 }
 
+/** 构造一条失败的助手回复。 */
 const failed = (kind: ApiErrorKind | 'upload', status?: number, message = 'boom'): AssistantMessage => ({
   ...base,
   status: 'error',
