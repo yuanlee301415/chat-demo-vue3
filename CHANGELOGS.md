@@ -549,3 +549,61 @@
 - `zh.ts` 中仍有 20 余条语音/导入导出/语言切换的死 key，Phase 5 统一删。
 - P0-04 的 spike 演示页已在 `P1-03` 删除，mermaid/katex/prism 的运行时验证要等 Phase 4 的真实组件。
 - 门禁不含 E2E 与可访问性自动检查（计划明确不做）。
+
+---
+
+## Phase 2 步骤清单
+
+按计划 §6 的建议拆分，登记为：
+
+| 步骤 | 内容 |
+|---|---|
+| `P2-01` | 数据层底座：Pinia、`settings` store、`createChatRuntime()`、新 DB（`chat-demo-vue` v1）+ DB 单测 |
+| `P2-02` | `session` store：列表加载、选择、重命名、删除、缓存淘汰 |
+| `P2-03` | 纯逻辑移植：`branches` / `view` / `describe` / `errors` + 单测 |
+| `P2-04` | `stream` store + `reply` 移植（发送 / 流式 / 停止 / 续写） |
+| `P2-05` | `uploads` / `drafts` / `ui` stores |
+| `P2-99` | Phase 2 门禁 |
+
+---
+
+## P2-01 数据层底座
+
+- 状态：已提交（`git log --grep P2-01`）
+- 开始：2026-11-19 09:51
+
+**计划与目标**
+
+- 目标：把 Phase 2 的地基一次打好——Pinia 实例与 `settings` store（含主题从 `useThemeMode` 迁入）、`createChatRuntime()` 的五个运行态容器、以及全新的 IndexedDB（`chat-demo-vue` v1，去掉导入暂存），并用 `fake-indexeddb` 覆盖 DB 的核心行为。
+- 范围：`src/services/api/types.ts`（协议类型）、`src/services/chat/types.ts`（模型）、`src/services/chat/db.ts`（新库）、`src/stores/pinia.ts`、`src/stores/settings.ts`、`src/stores/runtime.ts`、`src/app/useThemeMode.ts`（改读 settings）、`src/main.ts`、三个测试文件；依赖 `idb`、`fake-indexeddb`。
+- 不做：不移植 `session`/`stream`/`uploads`/`drafts`/`ui` store（`P2-02`–`P2-05`）；不做 `deleteAll` 的业务编排（只提供 DB 层的 `clearAllSessions`）；不做 `location` 设置（依赖省份/城市数据表，Phase 4 设置弹窗一起搬）；不接 `branches`/`reply`/`view`。
+- 验收：
+  1. `pnpm type|lint|format:check` 全绿；`pnpm test` 覆盖 DB 的保存/读取/重命名/删除（含附件引用计数）与清空。
+  2. `settings` store 的读写走 `chat-demo-vue:` 前缀；主题切换仍写 `chat-demo-vue:theme`，刷新后保留。
+  3. 新库名为 `chat-demo-vue`、版本 1、只有 `sessions`/`sessionSummaries`/`files` 三个 store，且不读取旧 `chat-demo` 库。
+  4. 浏览器实测：外壳正常、主题跟随系统与手动循环照旧、控制台 0 报错。
+
+**关键决策始末**
+
+1. **Pinia 4 + setup store**：`src/stores/pinia.ts` 出单例、`main.ts` `app.use(pinia)`；settings 用 setup store，写操作统一走 action，组件不直接改 state。
+2. **主题状态的唯一真源迁到 settings store**：之前 `useThemeMode` 自己读写 `chat-demo-vue:theme`，现在 store 持有并持久化，`useThemeMode` 只留 `matchMedia` 监听与三态循环；`App.vue` 只改了一行解构和类型来源。
+3. **primitive 用 `shallowRef`**：按 vue-best-practices 的建议，新 store/composable 里的原始值一律 `shallowRef`（行为与 `ref` 等价，省掉无意义的深层代理）；既有组件里的 `ref` 等 Phase 3 统一。
+4. **`ApiErrorKind` 挪进 `api/types.ts`**：原定义在 `client.ts`，但 P2-01 还没移植网络层；先随协议类型一起定义，等 `client.ts`/`errors.ts` 移植后从这里引用，避免两份 union 漂移。
+5. **新库 `chat-demo-vue` v1、删掉导入暂存**：导入导出已移除，`sessionsStaging`/`filesStaging`/`commitStaging` 等一并不要；新增 `clearAllSessions()` 给「删除全部对话」用。旧 `chat-demo` 库不读、不删。
+6. **`createChatRuntime()` 只建容器、不接业务**：把原来 8 个模块级可变状态（`sessionAccess`/`unsavedSessions`/`pendingFiles`/`deletingSessions`/`streamFlushes`/`titleRequests`/`sessionLoads`/`initTask`）收进可重置的工厂，测试之间不会串状态；语义等 `P2-02` 接 session store 时补。
+7. **`location` 暂不搬**：`normalizeLocation` 依赖 `locationData` 的省市数据表，等 Phase 4 设置弹窗一起搬，现在不引一张几 KB 的数据表占位。
+8. **DB 测试用 `fake-indexeddb/auto`**：node 环境直接跑；每个用例前 `clearAllSessions()`，因为 `idb` 的连接缓存是模块级的，不能靠删库重置。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `build` 全部 exit 0；入口 `index-*.js` 425.88 kB（gzip 135.76 kB），CSS 1.40 kB。
+- `pnpm test`：18 个用例 / 5 个文件全过——DB 5（保存、摘要、重命名、删除时按引用计数清理原件、清空、Blob 往返）、settings 3（默认值、`setTheme`、开关写入）、runtime 2（实例隔离、reset）、i18n 6、theme 2。
+- 浏览器（dev 8097）：系统浅→深实时跟随；按钮循环写入 `chat-demo-vue:theme`（`light`/`dark`/`system`）；刷新后保留 `system`；控制台 0 报错。
+- 库名检查：全仓只有 `chat-demo-vue`（DB 名 + localStorage 前缀），没有读取旧 `chat-demo` 的代码。
+
+**遗留**
+
+- `session`/`stream`/`uploads`/`drafts`/`ui` store 与 `deleteAll` 编排在 `P2-02`–`P2-05`。
+- `location` 设置未搬（Phase 4）。
+- `ApiErrorKind` 暂放 `api/types.ts`，网络层移植时再评估是否归入 `api/errors.ts`。
+- 旧 `chat-demo` 的 IndexedDB/localStorage 按计划保留原地，不迁移也不删除。

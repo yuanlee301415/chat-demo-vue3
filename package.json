@@ -22,9 +22,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "idb": "^8.0.4",
     "katex": "^0.18.11",
     "mermaid": "^12.3.0",
     "naive-ui": "^2.45.3",
+    "pinia": "^4.1.0",
     "prismjs": "^1.30.0",
     "vue": "^3.5.45"
   },
@@ -37,6 +39,7 @@
     "browserslist": "^4.29.6",
     "eslint": "^10.15.0",
     "eslint-plugin-vue": "^10.12.1",
+    "fake-indexeddb": "^6.2.8",
     "lightningcss": "^1.33.0",
     "prettier": "^3.10.1",
     "typescript": "~6.0.3",

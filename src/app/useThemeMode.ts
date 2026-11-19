@@ -1,34 +1,24 @@
-import { computed, onScopeDispose, ref } from 'vue'
+import { computed, onScopeDispose, shallowRef } from 'vue'
 
 import type { IconName } from '../components/base/iconNames'
+import { useSettingsStore, type ThemePreference } from '../stores/settings'
 
-/** 跟随系统 / 浅色 / 深色；与计划 §3.6 的 localStorage 键一致，Phase 2 的 settings store 接管后沿用。 */
-export type ThemeMode = 'system' | 'light' | 'dark'
+const ORDER: readonly ThemePreference[] = ['system', 'light', 'dark']
 
-const STORAGE_KEY = 'chat-demo-vue:theme'
-const ORDER: readonly ThemeMode[] = ['system', 'light', 'dark']
-
-const ICONS: Record<ThemeMode, IconName> = {
+const ICONS: Record<ThemePreference, IconName> = {
   system: 'follow-system',
   light: 'light',
   dark: 'dark',
 }
 
-const isThemeMode = (value: unknown): value is ThemeMode => value === 'system' || value === 'light' || value === 'dark'
-
-const readStoredMode = (): ThemeMode => {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    return isThemeMode(stored) ? stored : 'system'
-  } catch {
-    return 'system'
-  }
-}
-
+/**
+ * 主题偏好存在 settings store（localStorage `chat-demo-vue:theme`），
+ * 这里只负责系统偏好监听与三态循环，避免两处各存一份状态。
+ */
 export const useThemeMode = () => {
+  const settings = useSettingsStore()
   const query = window.matchMedia('(prefers-color-scheme: dark)')
-  const systemPrefersDark = ref(query.matches)
-  const mode = ref<ThemeMode>(readStoredMode())
+  const systemPrefersDark = shallowRef(query.matches)
 
   const handleSystemChange = (event: MediaQueryListEvent) => {
     systemPrefersDark.value = event.matches
@@ -37,22 +27,14 @@ export const useThemeMode = () => {
   query.addEventListener('change', handleSystemChange)
   onScopeDispose(() => query.removeEventListener('change', handleSystemChange))
 
-  const isDark = computed(() => (mode.value === 'system' ? systemPrefersDark.value : mode.value === 'dark'))
-  const icon = computed<IconName>(() => ICONS[mode.value])
-
-  const setMode = (next: ThemeMode) => {
-    mode.value = next
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next)
-    } catch {
-      /* 隐私模式下写不进去就只在本次会话生效 */
-    }
-  }
+  const theme = computed(() => settings.theme)
+  const isDark = computed(() => (settings.theme === 'system' ? systemPrefersDark.value : settings.theme === 'dark'))
+  const icon = computed<IconName>(() => ICONS[settings.theme])
 
   const cycle = () => {
-    const index = ORDER.indexOf(mode.value)
-    setMode(ORDER[(index + 1) % ORDER.length])
+    const index = ORDER.indexOf(settings.theme)
+    settings.setTheme(ORDER[(index + 1) % ORDER.length])
   }
 
-  return { mode, isDark, icon, setMode, cycle }
+  return { theme, isDark, icon, cycle, setTheme: settings.setTheme }
 }

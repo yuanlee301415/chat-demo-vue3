@@ -3,17 +3,18 @@ import { NButton, NConfigProvider, NDialogProvider, NEmpty, NLayout, NLayoutCont
 import { computed, ref } from 'vue'
 
 import { useI18n, type TranslationKey } from '../i18n'
+import type { ThemePreference } from '../stores/settings'
 import ProviderProbe from './ProviderProbe.vue'
 import { themeOverrides } from './theme'
 import { useThemeMode } from './useThemeMode'
 
 const { t } = useI18n()
-const { isDark, mode: themeMode, icon: themeIcon, cycle: cycleTheme } = useThemeMode()
+const { isDark, theme: themeMode, icon: themeIcon, cycle: cycleTheme } = useThemeMode()
 const collapsed = ref(false)
 
 const theme = computed(() => (isDark.value ? darkTheme : null))
 
-const THEME_LABEL_KEYS: Record<typeof themeMode.value, TranslationKey> = {
+const THEME_LABEL_KEYS: Record<ThemePreference, TranslationKey> = {
   system: 'avatarMenuSettingsDialogThemeSelectSystemOption',
   light: 'avatarMenuSettingsDialogThemeSelectLightOption',
   dark: 'avatarMenuSettingsDialogThemeSelectDarkOption',
