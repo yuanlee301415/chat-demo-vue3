@@ -7,7 +7,6 @@
 
 - 把 `deepseek-ai/chat-demo`（React + Rspack）重构为 **Vue 3 + TypeScript + Vite + NaiveUI + Pinia**，只保留桌面端。
 - 入口 `src/main.ts` → 外壳 `src/app/App.vue`；状态在 `src/stores/*`；纯逻辑在 `src/services/*`；文案在 `src/i18n/zh.ts`；图标在 `src/assets/icons/*.svg`。
-- 进度以 `CHANGELOGS.md` 为准：Phase 0 / Phase 1 已完成，Phase 2 进行中（`P2-01`–`P2-03` 已提交）。
 
 ## 2. 每次动手前
 
