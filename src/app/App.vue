@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { NButton, NConfigProvider, NDialogProvider, NLayout, NLayoutContent, NLayoutSider, NMessageProvider, NSpin, darkTheme, dateZhCN, zhCN } from 'naive-ui'
-import { computed, onMounted, watchEffect } from 'vue'
+import { computed, onMounted, watch, watchEffect } from 'vue'
 
 import SessionView from '../components/session/SessionView.vue'
 import WelcomeView from '../components/session/WelcomeView.vue'
 import AppSider from '../components/sider/AppSider.vue'
 import CollapsedSider from '../components/sider/CollapsedSider.vue'
+import SearchPanel from '../components/search/SearchPanel.vue'
 import { useI18n } from '../i18n'
 import { useSessionStore } from '../stores/session'
 import { useSettingsStore } from '../stores/settings'
+import { useUiStore } from '../stores/ui'
 import { themeOverrides } from './theme'
 import { useThemeMode } from './useThemeMode'
 
@@ -16,6 +18,7 @@ const { t } = useI18n()
 const { isDark } = useThemeMode()
 const session = useSessionStore()
 const settings = useSettingsStore()
+const ui = useUiStore()
 
 const theme = computed(() => (isDark.value ? darkTheme : null))
 const collapsed = computed(() => settings.siderCollapsed)
@@ -42,6 +45,12 @@ watchEffect(() => {
   document.documentElement.style.colorScheme = isDark.value ? 'dark' : 'light'
 })
 
+/** 搜索结果面板只属于当前会话：切换会话或回到欢迎页时关闭。 */
+watch(
+  () => session.activeId,
+  () => ui.closeSearchPanel(),
+)
+
 onMounted(() => {
   void session.init()
 })
@@ -63,21 +72,27 @@ onMounted(() => {
               <NButton size="small" @click="session.retrySave()">{{ t('retry') }}</NButton>
             </div>
 
-            <div v-if="!session.ready" class="state" role="status" aria-live="polite">
-              <NSpin v-if="!session.initError" size="small" />
-              <span>{{ session.initError ? t('sessionListLoadFailed') : t('sessionLoading') }}</span>
-              <NButton v-if="session.initError" size="small" @click="session.init()">{{ t('retry') }}</NButton>
+            <div class="workspace">
+              <div class="stage">
+                <div v-if="!session.ready" class="state" role="status" aria-live="polite">
+                  <NSpin v-if="!session.initError" size="small" />
+                  <span>{{ session.initError ? t('sessionListLoadFailed') : t('sessionLoading') }}</span>
+                  <NButton v-if="session.initError" size="small" @click="session.init()">{{ t('retry') }}</NButton>
+                </div>
+
+                <div v-else-if="activeSession === undefined && session.activeId !== null" class="state" role="status" aria-live="polite">
+                  <NSpin v-if="!activeError" size="small" />
+                  <span>{{ activeError ? t('sessionLoadFailed') : t('sessionLoading') }}</span>
+                  <NButton v-if="activeError" size="small" @click="session.ensureLoaded(session.activeId)">{{ t('retry') }}</NButton>
+                </div>
+
+                <SessionView v-else-if="activeSession !== undefined" :session="activeSession" />
+
+                <WelcomeView v-else />
+              </div>
+
+              <SearchPanel />
             </div>
-
-            <div v-else-if="activeSession === undefined && session.activeId !== null" class="state" role="status" aria-live="polite">
-              <NSpin v-if="!activeError" size="small" />
-              <span>{{ activeError ? t('sessionLoadFailed') : t('sessionLoading') }}</span>
-              <NButton v-if="activeError" size="small" @click="session.ensureLoaded(session.activeId)">{{ t('retry') }}</NButton>
-            </div>
-
-            <SessionView v-else-if="activeSession !== undefined" :session="activeSession" />
-
-            <WelcomeView v-else />
           </NLayoutContent>
         </NLayout>
       </NDialogProvider>
@@ -93,6 +108,19 @@ onMounted(() => {
 .content {
   display: flex;
   flex-direction: column;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .state {

@@ -7,7 +7,9 @@ import { describeReply } from '../../services/chat/describe'
 import { canContinueReply } from '../../services/chat/reply'
 import type { AssistantMessage } from '../../services/chat/types'
 import { useStreamStore } from '../../stores/stream'
+import { useUiStore } from '../../stores/ui'
 import MarkdownContent from '../markdown/MarkdownContent.vue'
+import SiteThumbnails from '../search/SiteThumbnails.vue'
 import ReplyArea from './ReplyArea.vue'
 import { useReplyView } from './useReplyView'
 
@@ -22,6 +24,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const stream = useStreamStore()
+const ui = useUiStore()
 const toast = useMessage()
 
 /** 由回复推导时间线、正文与来源；来源不变时复用数组，避免流式重解析引用。 */
@@ -53,6 +56,14 @@ const hasResponse = computed(() => copyText.value !== '')
 
 /** 是否允许继续生成；与 store 的判定同源。 */
 const canContinue = computed(() => canContinueReply(props.message))
+
+/** 底部搜索结果汇总的面板入口。 */
+const summaryEntry = computed(() => `${props.message.id}-summary`)
+
+/** 切换本轮搜索结果的来源面板。 */
+const toggleSummary = () => {
+  ui.toggleSearchPanel(summaryEntry.value, view.value.searchResults)
+}
 
 /** 复制正文；非安全上下文可能失败，失败给提示。 */
 const copy = async () => {
@@ -89,6 +100,11 @@ const continueReply = () => {
 
     <p v-if="errorText !== null" class="error" role="alert">{{ errorText }}</p>
 
+    <button v-if="!streaming && !refused && view.searchResults.length > 0" type="button" class="summary" :class="{ summaryActive: ui.isSearchPanelOpen(summaryEntry) }" @click="toggleSummary">
+      <SiteThumbnails :sources="view.searchResults" />
+      <span>{{ t(view.searchResults.length === 1 ? 'messageSearchSummary' : 'messageSearchSummaries', { count: view.searchResults.length }) }}</span>
+    </button>
+
     <div class="actions">
       <NButton v-if="message.error" text size="tiny" :disabled="streaming" @click="regenerate">{{ t('retry') }}</NButton>
       <NButton v-if="copyText !== ''" text size="tiny" @click="copy">{{ t('copy') }}</NButton>
@@ -116,6 +132,36 @@ const continueReply = () => {
   margin: 0;
   color: #d64545;
   font-size: 13px;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 16px;
+  padding: 4px 10px 4px 4px;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-small);
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--dsw-alias-bg-base);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 100px;
+  transition: background-color 0.3s;
+}
+
+.summary > span:first-child {
+  margin-left: 0;
+}
+
+.summary > span:last-child {
+  margin-left: 6px;
+}
+
+.summary:hover,
+.summaryActive {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+  --search-row-site-logo-color: var(--dsw-alias-interactive-bg-hover);
 }
 
 .actions {

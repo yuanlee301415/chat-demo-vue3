@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { NPopover } from 'naive-ui'
+
 import type { Source } from '../../services/chat/view'
+import SourceCard from './SourceCard.vue'
 
 const props = defineProps<{
   /** 引用角标对应的来源 */
@@ -15,5 +18,10 @@ const open = (event: Event) => {
 </script>
 
 <template>
-  <span class="ds-markdown-cite" role="link" tabindex="0" @click="open" @keydown.enter="open" @keydown.space.prevent="open">{{ source.index }}</span>
+  <NPopover trigger="hover" placement="bottom" :delay="300" :show-arrow="false" :content-style="{ maxWidth: '355px', padding: '16px' }">
+    <template #trigger>
+      <span class="ds-markdown-cite" role="link" tabindex="0" @click="open" @keydown.enter="open" @keydown.space.prevent="open">{{ source.index }}</span>
+    </template>
+    <SourceCard :source="source" />
+  </NPopover>
 </template>

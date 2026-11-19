@@ -5,8 +5,9 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useI18n } from '../../i18n'
 import type { AssistantMessage } from '../../services/chat/types'
 import { getAreaTitle, isDeepSearchKind, isImageSearchKind, type FindStep, type OpenStep, type ReplyView, type SearchStep, type Step, type ThinkingStep } from '../../services/chat/view'
+import { useUiStore } from '../../stores/ui'
 import MarkdownContent from '../markdown/MarkdownContent.vue'
-import SiteLogo from '../search/SiteLogo.vue'
+import SiteThumbnails from '../search/SiteThumbnails.vue'
 import PageLink from './PageLink.vue'
 
 const props = defineProps<{
@@ -21,6 +22,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const ui = useUiStore()
 
 /** 当前时间；流式期间每秒刷新，用于思考用时与搜索词轮播。 */
 const now = shallowRef(Date.now())
@@ -81,6 +83,28 @@ const searchSummary = (step: SearchStep) =>
     count: step.results.length,
   })
 
+/** 搜索行对应的面板入口：同一轮搜索再次点击时据此收起。 */
+const searchEntry = (step: SearchStep) => `${props.message.id}-search-${step.key}`
+
+/** 有结果且不在进行中时，搜索行才可打开面板。 */
+const canOpenSearch = (step: SearchStep) => step.status !== 'wip' && step.results.length > 0
+
+/** 切换该轮搜索的来源面板。 */
+const toggleSearchPanel = (step: SearchStep) => {
+  if (canOpenSearch(step)) {
+    ui.toggleSearchPanel(searchEntry(step), step.results)
+  }
+}
+
+/** 打开网页的「查看全部」：只列出这些页面在来源表里的条目。 */
+const openAllPages = (step: OpenStep) => {
+  const urls = new Set(step.pages.map((page) => page.url))
+  ui.toggleSearchPanel(
+    `${props.message.id}-open-${step.pages[0]?.id ?? ''}`,
+    props.view.sources.filter((source) => urls.has(source.url)),
+  )
+}
+
 /** 打开网页是否全部失败。 */
 const allPagesFailed = (step: OpenStep) => step.pages.every((page) => page.status === 'failed')
 
@@ -107,7 +131,16 @@ const allPatternsFailed = (step: FindStep) => step.patterns.every((item) => item
           <MarkdownContent :content="step.markdown" :loading="streaming && isLast(index)" :sources="view.sources" />
         </div>
 
-        <div v-else-if="step.type === 'search'" class="row" :class="{ withLine: !isLast(index) }">
+        <div
+          v-else-if="step.type === 'search'"
+          class="row"
+          :class="{ withLine: !isLast(index), clickable: canOpenSearch(step), active: ui.isSearchPanelOpen(searchEntry(step)) }"
+          :role="canOpenSearch(step) ? 'button' : undefined"
+          :tabindex="canOpenSearch(step) ? 0 : undefined"
+          @click="toggleSearchPanel(step)"
+          @keydown.enter="toggleSearchPanel(step)"
+          @keydown.space.prevent="toggleSearchPanel(step)"
+        >
           <span class="rowIcon">
             <AppIcon :name="step.status === 'failed' ? 'search-warning' : 'search'" :size="14" />
           </span>
@@ -123,9 +156,7 @@ const allPatternsFailed = (step: FindStep) => step.patterns.every((item) => item
           <span v-else-if="step.results.length === 0">{{ t(isDeepSearchKind(step.kind) ? 'toolSearchNoResult' : 'messageSearchNoResult') }}</span>
           <template v-else>
             <span class="summary">{{ searchSummary(step) }}</span>
-            <span class="thumbs">
-              <SiteLogo v-for="source in step.results.slice(0, 4)" :key="source.url" :url="source.siteIcon" class="thumb" />
-            </span>
+            <SiteThumbnails :sources="step.results" />
           </template>
         </div>
 
@@ -138,6 +169,7 @@ const allPatternsFailed = (step: FindStep) => step.patterns.every((item) => item
             <template v-else>
               <span class="intro">{{ t(step.pages.length === 1 ? 'toolOpenOneIntro' : 'toolOpensIntro', { count: step.pages.length }) }}</span>
               <PageLink v-for="page in step.pages.slice(0, 5)" :key="page.id" :page="page" :failed-tip="t('toolOpenFailTooltip')" />
+              <span v-if="step.pages.length > 5" class="chip" role="button" tabindex="0" @click="openAllPages(step)" @keydown.enter="openAllPages(step)">{{ t('toolOpenViewAll') }}</span>
             </template>
           </div>
         </div>
@@ -313,6 +345,47 @@ const allPatternsFailed = (step: FindStep) => step.patterns.every((item) => item
   height: 34px;
   font: var(--dsw-font-markdown-small);
   color: var(--dsw-alias-label-secondary);
+  /* 让 -1 层的胶囊底只落在本行内，不会藏到页面背景后面。 */
+  isolation: isolate;
+}
+
+.row.clickable {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.row.clickable::before,
+.row.active::before {
+  position: absolute;
+  z-index: -1;
+  left: -10px;
+  width: calc(100% + 20px);
+  height: calc(100% - 6px);
+  background-color: transparent;
+  border-radius: 100px;
+  opacity: 0;
+  content: '';
+  transition:
+    opacity 0.2s,
+    background-color 0.2s;
+}
+
+.row.clickable::before {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.row.clickable:hover::before {
+  opacity: 1;
+}
+
+.row.active::before {
+  background-color: var(--dsw-alias-interactive-bg-active);
+  opacity: 1;
+}
+
+.row.clickable:hover,
+.row.active {
+  --search-row-site-logo-color: var(--dsw-alias-interactive-bg-hover);
 }
 
 .prefix,
@@ -333,27 +406,6 @@ const allPatternsFailed = (step: FindStep) => step.patterns.every((item) => item
   from {
     opacity: 0;
   }
-}
-
-.thumbs {
-  display: inline-flex;
-  margin-left: 6px;
-  user-select: none;
-}
-
-.thumb {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin-left: -4px;
-  box-shadow:
-    0 0 0 1px var(--search-row-site-logo-color, var(--dsw-alias-bg-base)),
-    0 0 0 1px var(--dsw-alias-bg-base);
-  transition: box-shadow 0.2s;
-}
-
-.thumb:first-of-type {
-  margin-left: 0;
 }
 
 .tool {

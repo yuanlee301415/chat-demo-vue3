@@ -1395,3 +1395,47 @@
 ---
 
 
+## P4-02 搜索面板 / 来源卡片
+
+- 状态：已提交（`git log --grep P4-02`）
+- 开始：2026-11-19 16:26
+
+**计划与目标**
+
+- 目标：补齐右侧「搜索结果」面板与来源卡片；正文引用角标悬停显示来源预览；搜索行、底部「N 个网页」汇总与打开网页「查看全部」都能打开面板，同一入口再次点击收起。
+- 范围：新增 `src/stores/ui.ts`（面板状态）与 `src/components/search/{SearchPanel,SourceCard,SiteThumbnails}.vue`；`CitationLink.vue` 改用 `NPopover` 做悬停预览；`ReplyArea.vue` 增加点击/激活态与「查看全部」；`AssistantMessage.vue` 增加底部汇总；`App.vue` 布局容纳面板并在切换会话时关闭；新增 `stores/ui.test.ts`。
+- 不做：设置弹窗（`P4-03`）；面板内搜索/过滤；移动端抽屉（桌面端固定侧栏）。
+- 验收：
+  1. 点击搜索行打开右侧面板，列出该轮全部来源；再次点击同一行收起。
+  2. 点击底部「N 个网页」汇总打开同一面板；再次点击收起。
+  3. 打开网页超过 5 条时出现「查看全部」，面板只含这些页面。
+  4. 正文角标悬停显示来源卡片（图标/站点名、日期、标题、摘要），点击仍新标签打开。
+  5. 切换会话时面板自动关闭。
+  6. `type|lint|format:check|test|build` 全绿；无头 Chrome 控制台 0 报错。
+
+**关键决策始末**
+
+1. **面板状态放 `stores/ui.ts`**（计划 §3.5 指定）：入口 key 语义与旧版一致——同一入口再次点击收起、换入口替换内容；`entry/sources` 只存一份，组件不各存本地状态，测试用 `createPinia()` 即可重置。
+2. **悬停卡片用 `NPopover`**（计划 §2.1）：替掉旧版手写定位 + `createPortal`，`delay=300`、`content-style` 限宽 355px / 内边距 16px；`SourceCard` 两端（悬停预览与面板列表）复用同一组件。
+3. **抽 `SiteThumbnails.vue`**：搜索行与底部「N 个网页」汇总原本各写一份重叠缩略图；抽成组件后 `--search-row-site-logo-color` 仍在父级设置，悬停/激活时边框色随背景变化。
+4. **搜索行升级为可键盘操作的按钮**：`role="button"` + `tabindex` + Enter/Space，比旧版纯 div 可访问；`.active` 胶囊底用 `isolation: isolate` 把负 `z-index` 伪元素限制在本行内，避免藏到页面背景后面（旧结构下才暴露这个坑）。
+5. **面板与内容并排而不是覆盖层**：放进 `App.vue` 的 workspace flex 行，打开时聊天区自动让宽（实测 1184 → 794px）；会话切换统一 `closeSearchPanel()`，「面板只属于当前会话」与旧版一致。
+6. **「查看全部」按 URL 过滤 `view.sources`**：打开网页可能不在搜索结果里，用 `step.pages` 的 URL 集合筛选才能只列出这些页面；入口 key 取首个页面 id（`message-open-<id>`），同一回答的多个 open 步骤互不干扰。
+
+**验证记录**
+
+- 命令：`pnpm type` / `lint` / `format:check` / `test`（139 例 / 24 文件）/ `docs:fields` / `build` → **全部 exit 0**。
+- 构建：入口 `index-CcBQvOl2.js` 685.27 kB（gzip 214.49 kB），CSS 44.51 kB。
+- 无头 Chrome（dev 8097，预置 2 个会话、3 条搜索结果 + 6 个打开页面）：
+  - 点搜索行：面板宽 390px、3 张卡片（站点名/日期 `2026/11/01`/标题/摘要/`href` 齐全）、行 `active`，聊天区 1184 → 794px；再点同一行收起。
+  - 点底部「3 个网页」：面板 3 条、汇总 `summaryActive`、搜索行不激活；头部关闭按钮收起。
+  - 「查看全部」：面板 6 条（页面 1–6）。
+  - 角标悬停 300ms：`NPopover` 显示 `a.example`、日期、标题、摘要；点击调用 `window.open(url, '_blank', 'noopener,noreferrer')`。
+  - 切到另一个会话：面板自动关闭。
+  - 控制台 **0 报错 / 0 警告**。截图存临时目录（`dsh-p4-02-panel.png`、`dsh-p4-02-hover.png`），未入库。
+
+**遗留**
+
+- 面板不支持 Esc 关闭/焦点陷阱（旧版也没有）；需要时在 `P4-99` 或 `P5` 统一补。
+- 面板内不做二次检索/排序，按计划保持「结果列表」定位。
+- 未做移动端全屏面板（计划只保留桌面端）。
