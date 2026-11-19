@@ -2,6 +2,7 @@
 import { NButton, NConfigProvider, NDialogProvider, NLayout, NLayoutContent, NLayoutSider, NMessageProvider, NSpin, darkTheme, dateZhCN, zhCN } from 'naive-ui'
 import { computed, onMounted } from 'vue'
 
+import SessionView from '../components/session/SessionView.vue'
 import WelcomeView from '../components/session/WelcomeView.vue'
 import AppSider from '../components/sider/AppSider.vue'
 import CollapsedSider from '../components/sider/CollapsedSider.vue'
@@ -18,6 +19,12 @@ const settings = useSettingsStore()
 
 const theme = computed(() => (isDark.value ? darkTheme : null))
 const collapsed = computed(() => settings.siderCollapsed)
+
+/** 当前选中的会话详情；未加载时为空。 */
+const activeSession = computed(() => (session.activeId === null ? undefined : session.sessionCache[session.activeId]))
+
+/** 会话详情加载失败标记。 */
+const activeError = computed(() => session.activeId !== null && session.sessionLoadErrors[session.activeId] === true)
 
 onMounted(() => {
   void session.init()
@@ -40,6 +47,15 @@ onMounted(() => {
               <span>{{ session.initError ? t('sessionListLoadFailed') : t('sessionLoading') }}</span>
               <NButton v-if="session.initError" size="small" @click="session.init()">{{ t('retry') }}</NButton>
             </div>
+
+            <div v-else-if="activeSession === undefined && session.activeId !== null" class="state" role="status" aria-live="polite">
+              <NSpin v-if="!activeError" size="small" />
+              <span>{{ activeError ? t('sessionLoadFailed') : t('sessionLoading') }}</span>
+              <NButton v-if="activeError" size="small" @click="session.ensureLoaded(session.activeId)">{{ t('retry') }}</NButton>
+            </div>
+
+            <SessionView v-else-if="activeSession !== undefined" :session="activeSession" />
+
             <WelcomeView v-else />
           </NLayoutContent>
         </NLayout>

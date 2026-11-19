@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NDropdown, NInput } from 'naive-ui'
+import { NButton, NDropdown, NInput } from 'naive-ui'
 import { computed, nextTick, ref } from 'vue'
 
 import { useI18n } from '../../i18n'
@@ -46,6 +46,20 @@ const finishRename = (commit: boolean) => {
   }
 }
 
+/** 输入框快捷键：Enter 提交、Esc 取消；输入法组合中不处理。 */
+const onKeydown = (event: KeyboardEvent) => {
+  if (event.isComposing) {
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    finishRename(true)
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    finishRename(false)
+  }
+}
+
 /** 菜单项：重命名或请求删除。 */
 const onMenuSelect = (key: string) => {
   if (key === 'rename') {
@@ -70,7 +84,7 @@ const select = () => {
 
 <template>
   <div class="session-item" :class="{ 'session-item--active': active }" @click="select">
-    <NInput v-if="editing" ref="inputRef" v-model:value="draftTitle" size="small" :bordered="false" @blur="finishRename(true)" @keydown.enter.prevent="finishRename(true)" @keydown.esc.prevent="finishRename(false)" @click.stop />
+    <NInput v-if="editing" ref="inputRef" v-model:value="draftTitle" size="small" :bordered="false" @blur="finishRename(true)" @keydown="onKeydown" @click.stop />
     <template v-else>
       <span class="session-item__title">{{ displayTitle }}</span>
       <NDropdown :options="menuOptions" trigger="click" placement="bottom-end" @select="onMenuSelect">
