@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { NButton, NInput, NTooltip } from 'naive-ui'
+import { NButton, NInput, NTooltip, useMessage } from 'naive-ui'
 import { computed, ref } from 'vue'
 
 import { useI18n } from '../../i18n'
+import { ACCEPT } from '../../services/attachments'
 import { useDraftsStore } from '../../stores/drafts'
 import { useSettingsStore } from '../../stores/settings'
 import { useStreamStore } from '../../stores/stream'
 import { useUploadsStore } from '../../stores/uploads'
+import DraftAttachments from './DraftAttachments.vue'
 
 const props = defineProps<{
   /** 草稿所属会话；null 表示新对话 */
@@ -14,11 +16,14 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const toast = useMessage()
 const drafts = useDraftsStore()
 const uploads = useUploadsStore()
 const settings = useSettingsStore()
 const stream = useStreamStore()
 const focused = ref(false)
+const dragging = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 /** 与 drafts store 双向绑定，切会话不串草稿。 */
 const text = computed({
@@ -63,14 +68,60 @@ const onKeydown = (event: KeyboardEvent) => {
   event.preventDefault()
   submit()
 }
+
+/** 追加一批文件；校验失败用 toast 说明并整批丢弃。 */
+const addFiles = (files: File[]) => {
+  if (files.length === 0) {
+    return
+  }
+  const error = drafts.addFiles(props.sessionId, files, settings.apiKey ?? '')
+  if (error !== null) {
+    toast.warning(t(error.key, error.params))
+  }
+}
+
+/** 文件选择框变更。 */
+const onPick = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  addFiles([...(input.files ?? [])])
+  input.value = ''
+}
+
+/** 打开系统文件选择框。 */
+const openPicker = () => {
+  fileInput.value?.click()
+}
+
+/** 拖拽释放：取文件并交给草稿。 */
+const onDrop = (event: DragEvent) => {
+  dragging.value = false
+  addFiles([...(event.dataTransfer?.files ?? [])])
+}
+
+/** 粘贴：有文件时添加附件并阻止默认粘贴，纯文本交给输入框。 */
+const onPaste = (event: ClipboardEvent) => {
+  const files = [...(event.clipboardData?.files ?? [])]
+  if (files.length > 0) {
+    event.preventDefault()
+    addFiles(files)
+  }
+}
 </script>
 
 <template>
-  <div class="chat-input" :class="{ 'chat-input--focused': focused }">
+  <div class="chat-input" :class="{ 'chat-input--focused': focused, 'chat-input--dragging': dragging }" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDrop" @paste="onPaste">
+    <DraftAttachments :session-id="sessionId" />
+
     <NInput v-model:value="text" type="textarea" :placeholder="t('chatInputPlaceholderChat')" :autosize="{ minRows: 1, maxRows: 8 }" :bordered="false" @focus="focused = true" @blur="focused = false" @keydown="onKeydown" />
 
     <div class="chat-input__bar">
       <div class="chat-input__toggles">
+        <NButton quaternary circle size="small" aria-label="添加附件" @click="openPicker">
+          <template #icon>
+            <AppIcon name="paperclip" />
+          </template>
+        </NButton>
+        <input ref="fileInput" class="chat-input__file" type="file" multiple :accept="ACCEPT" @change="onPick" />
         <NTooltip placement="top">
           <template #trigger>
             <NButton quaternary circle size="small" :type="settings.thinking ? 'primary' : 'default'" :aria-label="t('thinkingSwitch')" @click="settings.setThinking(!settings.thinking)">
@@ -127,6 +178,15 @@ const onKeydown = (event: KeyboardEvent) => {
 
 .chat-input--focused {
   border-color: #4d6bfe;
+}
+
+.chat-input--dragging {
+  border-color: #4d6bfe;
+  background: rgb(77 107 254 / 8%);
+}
+
+.chat-input__file {
+  display: none;
 }
 
 .chat-input__bar {
