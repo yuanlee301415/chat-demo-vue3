@@ -890,3 +890,42 @@
 
 - 提交钩子/CI 串联留到 Phase 5。
 - `DOC-06` 做完整门禁、浏览器冒烟与 grep 验收。
+
+---
+
+## DOC-06 门禁
+
+- 状态：已提交（`git log --grep DOC-06`）
+- 开始：2026-11-19 11:18
+
+**计划与目标**
+
+- 目标：对整条注释规范工作流做收尾验证——命令套件、浏览器冒烟、grep 验收与最终数字，确认 `AGENTS.md` 与代码一致。
+- 范围：只做验证与文档记录；不新增功能、不改规则。
+- 验收：
+  1. `pnpm type` / `lint`（`--max-warnings=0`）/ `docs:fields` / `format:check` / `test` / `build` 全部 exit 0。
+  2. dev（8097）外壳渲染正常、控制台 0 报错。
+  3. `@see` 锚点齐全、命名空间字面量唯一、JSDoc 内无类型重复。
+  4. 最终数字（`@see` 条数、注释块数、文件数）写入本文档。
+
+**关键决策始末**
+
+1. **最终数字由脚本统计 `src/**/*.{ts,vue}`**：34 个文件、**349 个 JSDoc 块**、**18 个 `@see`**（17 个唯一目标）、0 处 JSDoc 类型重复。
+2. **`@see` 覆盖 `AGENTS.md` §7 的全部锚点**：`zh`、`ICON_NAMES`/`IconName`、`APP_NAMESPACE`、`Session`/`SessionSummary`、`ApiErrorKind`、`PRIMARY_COLOR`、`ThemePreference`、`CHANGELOGS.md（P2-01/P2-02）`；`package.json` 版本引用在 `vite.config.ts`，不在 `src` 扫描范围，已单独标注。
+3. **浏览器冒烟沿用独立进程 8097**：验证后停服并确认端口释放，不碰用户可能占用的 8091/4173。
+4. **门禁之后固化规则**：`--max-warnings=0` 与 `jsdoc/* = error` 不再回调为 `warn`，后续新代码缺注释会直接失败。
+
+**验证记录**
+
+- `pnpm type` / `lint`（`--max-warnings=0`）/ `docs:fields` / `format:check` / `test` / `build`：**全部 exit 0**。
+- `pnpm test`：60 个用例 / 10 个文件。
+- `pnpm build`：2713 modules，入口 425.88 kB（gzip 135.76 kB），CSS 1.40 kB。
+- 浏览器（dev 8097）：`lang=zh-CN`、侧栏 240、欢迎语「今天有什么可以帮到你？」、`application-version=0.1.0`、控制台 0 报错。
+- `grep -rn "chat-demo-vue" src`：只命中 `src/services/appNamespace.ts`。
+- JSDoc 类型重复扫描（`{string}`/`{number}`/`{boolean}`/`@type` 出现在注释行）：0 处。
+
+**遗留**
+
+- 提交钩子 / CI 串联留到 Phase 5（当前由 `pnpm lint` 承担门禁）。
+- 字段检查器仍是启发式（联合类型内联对象可能漏检）。
+- 注释工作流结束后回到 `P2-04`（stream store + reply 移植）。
