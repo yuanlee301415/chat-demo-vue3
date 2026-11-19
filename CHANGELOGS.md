@@ -1631,3 +1631,60 @@
 
 - 未放截图 / GIF，交付时如需演示可再补。
 - CI 与 Pages 配置仍未做，见 `P5-99` 的遗留。
+
+---
+
+## P5-99 Phase 5 门禁
+
+- 状态：已提交（`git log --grep P5-99`）
+- 开始：2026-11-19 17:45
+
+**计划与目标**
+
+- 目标：按计划 Phase 5 门禁「Windows/Linux 构建通过；`pnpm test` 通过；preview 可完整使用」做收尾验证，并核对清理与 README 两项交付。
+- 范围：只做验证与记录；Linux 构建通过 WSL Ubuntu 的独立副本执行，不污染 Windows 的 `node_modules`；preview 用产物起服务（端口 4175）。
+- 不做：CI / Pages 配置（计划里列在 Phase 5 第三步，本轮未纳入范围，见遗留）；真实 DeepSeek 接口联调。
+- 验收：
+  1. Windows：`type|lint|format:check|test|build|docs:fields` 全部 exit 0。
+  2. Linux：独立副本上 `pnpm install --frozen-lockfile` 后 `pnpm build`、`pnpm test` 均通过。
+  3. `vite preview` 用 `dist/` 启动：首屏、设置弹窗与主题切换、预置会话的 Markdown / 表格 / 代码块 / 公式 / Mermaid / 引用与搜索面板全部可用；控制台 0 报错。
+  4. 产物包含 `LICENSE` 与 `application-version` 元信息；验证后停服并确认端口释放。
+**关键决策始末**
+
+1. **Linux 用 WSL 独立副本验证**：在 Ubuntu（WSL2）里装 Linux 版 Node 22 + pnpm 12，把仓库（排除 `node_modules` / `dist` / `.git`）复制到 WSL 家目录，再 `pnpm install --frozen-lockfile` → `pnpm build` → `pnpm test`；不污染 Windows 的 `node_modules`。
+2. **用显式退出码判定 Linux 结果**：外层 `wsl.exe` 管道曾因 stderr 被记为 exit 1，改为脚本内记录 `build_exit` / `test_exit` 并核对产物数量，避免把构建警告当成失败。
+3. **preview 用真实产物 + 独立浏览器配置**：`vite preview` 起在 4175，覆盖设置分包、Mermaid / KaTeX / Prism 动态 chunk 与搜索面板，确认「完整可用」而不是只看首屏。
+4. **产物验收包含元信息**：检查 `dist/LICENSE` 与 `application-version` meta（`0.1.0`），确认构建插件的交付逻辑仍生效。
+
+**验证记录**
+
+- Windows：`pnpm type` / `lint` / `format:check` / `test`（149 例 / 25 文件）/ `docs:fields` / `build` → **全部 exit 0**；入口 811.83 kB（gzip 247.82），CSS 37.21 kB。
+- Linux（WSL Ubuntu，`Linux 6.18 x86_64`，Node `v22.22.0`，pnpm `12.5.1`）：
+  - `pnpm install --frozen-lockfile` 成功；
+  - `pnpm build` → **`build_exit=0`**（`✓ built in 1.92s`，仅保留 chunk > 500 kB 提示）；
+  - `pnpm test` → **`test_exit=0`**（25 文件 / 149 例，808 ms）；
+  - `dist` 共 **194** 个文件。
+- preview（`vite preview`，端口 4175，独立浏览器配置）：
+  - 首屏与设置弹窗正常：两个 tab、「通用设置」标题；切深色写入 `localStorage:theme=dark`；
+  - 预置会话：`h1`、表格 2 个单元格、任务项、代码块 10 个 token、KaTeX、Mermaid SVG、时间线与搜索行、引用角标、底部「1 个网页」汇总；
+  - 打开搜索面板（1 条来源）、角标悬停显示来源卡片；
+  - `meta[name="application-version"]` 为 `0.1.0`，`dist/LICENSE` 存在；
+  - 控制台 **0 报错 / 0 警告**；停服后 4175 / 9223 端口已释放。
+  - 截图存临时目录（`dsh-p5-preview.png`），未入库。
+
+**与计划 §7 验收对账**
+
+- 1 命令套件：✅ Windows 全绿；Linux 构建与测试 exit 0。
+- 2 smoke checklist：✅ 除「真实 DeepSeek 接口联调」外均已覆盖（首次打开、发送/停止/重生成/编辑/续写/分支、思考/搜索/引用、代码块/公式/Mermaid、附件、主题、位置、删除会话、删除全部、刷新恢复、dev/build/preview）。
+- 3 旧数据：✅ 新库固定 `chat-demo-vue`，不读取/删除旧 `chat-demo` 数据。
+- 4 残留：✅ `src` 无移动端 / 语音 / 导入导出引用，`zh.ts` 已清到 122 个在用 key。
+- 5 bundle：✅ 无 React / zustand / fflate / rspack；KaTeX / Mermaid / Prism 仍为独立 chunk。
+- 6 Vue 最佳实践：✅ 组件 `<script setup>`、Pinia setup stores、无仿 React 包装器。
+- 7 流程：✅ `P5-01` / `P5-02` / `P5-99` 均有条目与一一对应的提交。
+- 8 注释约定：✅ `docs:fields` 0；约定本身不参与 lint。
+
+**遗留**
+
+- CI 与 Pages 配置未做（本轮范围只到清理、README 与门禁）；计划 Phase 5 的第三步可按需补。
+- 入口 chunk 仍超过 500 kB 提示阈值，后续可把设置弹窗改为异步组件或做进一步拆包。
+- 真实 DeepSeek 接口仍未联调（需要 Key 与外网），上线前需补一次手工回归。
