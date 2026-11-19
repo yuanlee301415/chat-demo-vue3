@@ -5,10 +5,12 @@ import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
 const message = useMessage()
 const dialog = useDialog()
 
+/** 触发一次成功提示，验证 `NMessageProvider` 已接入。 */
 const notify = () => {
   message.success('NMessageProvider 已接通')
 }
 
+/** 弹一次确认框，验证 `NDialogProvider` 已接入。 */
 const confirm = () => {
   dialog.warning({
     title: 'NDialogProvider 已接通',

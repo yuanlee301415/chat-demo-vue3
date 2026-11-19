@@ -14,6 +14,11 @@ const collapsed = ref(false)
 
 const theme = computed(() => (isDark.value ? darkTheme : null))
 
+/**
+ * 主题模式 → 文案键。
+ *
+ * @see ThemePreference 三态的唯一来源
+ */
 const THEME_LABEL_KEYS: Record<ThemePreference, TranslationKey> = {
   system: 'avatarMenuSettingsDialogThemeSelectSystemOption',
   light: 'avatarMenuSettingsDialogThemeSelectLightOption',

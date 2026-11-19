@@ -822,3 +822,35 @@
 - app 层与构建配置的 6 条警告在 `DOC-04`。
 - 测试 helper 的 12 条警告与规则收紧在 `DOC-05`。
 - jsdoc 规则仍是 `warn`。
+
+---
+
+## DOC-04 外壳与构建配置注释
+
+- 状态：已提交（`git log --grep DOC-04`）
+- 开始：2026-11-19 11:17
+
+**计划与目标**
+
+- 目标：补齐 `app/*` 与构建配置里的函数注释，让 lint 警告只剩测试 helper（`DOC-05`）。
+- 范围：`src/app/ProviderProbe.vue`、`src/app/useThemeMode.ts`、`src/app/App.vue`（只加 `@see`）、`src/app/theme.ts`、`vite.config.ts`、`vitest.config.ts`。
+- 不做：不碰测试（`DOC-05`）；不改逻辑；不删除 `ProviderProbe`（Phase 3 才删）。
+- 验收：这 6 条警告归零；`docs:fields` 保持 0；`type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **6 条警告都是具名函数**：`notify`/`confirm`（临时验证组件）、`handleSystemChange`/`cycle`、`fileUrl`/`readVersion`；各补一句话职责，不为显而易见的参数加 `@param`。
+2. **`@see` 只加在来源处**：`useThemeMode` → `useSettingsStore`/`ThemePreference`；`readVersion` → `package.json`；`App.vue` 的 `THEME_LABEL_KEYS` → `ThemePreference`；`themeOverrides` → `PRIMARY_COLOR`。
+3. **`ProviderProbe` 注释保留「Phase 3 删除」提示**：它是临时验证组件，注释里点明去向，避免后来者当正式组件维护。
+
+**验证记录**
+
+- `pnpm lint`：18 → **12 warning**、0 error；剩余全部是测试 helper（`DOC-05`）。
+- `pnpm docs:fields`：0，exit 0。
+- `pnpm type` / `format:check` / `test`（60 例）/ `build` 通过；bundle 体积保持 425.88 kB 不变。
+- 改动文件：`ProviderProbe.vue`、`useThemeMode.ts`、`App.vue`、`theme.ts`、`vite.config.ts`。
+
+**遗留**
+
+- 测试 helper 的 12 条注释与 jsdoc 规则收紧在 `DOC-05`。
+- `DOC-06` 做完整门禁与浏览器冒烟。

@@ -23,8 +23,14 @@ const BUILD_TARGET = Object.entries(BROWSER_TARGETS).map(([browser, version]) =>
 
 const targets = browserslistToTargets(browserslist(BROWSER_QUERIES))
 
+/** 把相对路径解析成基于本配置文件的绝对路径。 */
 const fileUrl = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
 
+/**
+ * 从 `package.json` 读版本号；注入 HTML 与页面显示都以它为准。
+ *
+ * @see package.json 版本号的唯一来源
+ */
 const readVersion = (): string => {
   const raw = readFileSync(fileUrl('./package.json'), 'utf8')
   return (JSON.parse(raw) as { version: string }).version
