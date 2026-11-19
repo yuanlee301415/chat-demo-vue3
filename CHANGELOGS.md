@@ -873,3 +873,43 @@
 
 ---
 
+## P2-99 Phase 2 门禁
+
+- 状态：已提交（`git log --grep P2-99`）
+- 开始：2026-11-19 14:18
+
+**计划与目标**
+
+- 目标：按计划 §7 与 Phase 2 门禁验证状态/数据层——单测全绿、旧数据不读取、无禁用栈残留、注释审计为 0。
+- 范围：命令套件、依赖与 bundle 检查、旧命名空间检查、`any` / 模块级状态扫描、dev 冒烟、CHANGELOG 序号核对。
+- 不做：不做聊天 UI 流程验收（Phase 3）。
+- 验收：
+  1. `type|lint|format:check|test|build|docs:fields` 全部 exit 0。
+  2. 测试覆盖 §7 列出的 `branches` / `reply` / `view` / `describe` / `errors` / `sessionGroups` / `latestReminder` / `attachments` / `db`。
+  3. 旧命名空间 `chat-demo` 不出现在 `src`；bundle 不含 React / zustand / fflate / Rspack。
+  4. dev（8097）外壳正常、控制台 0 报错。
+
+**关键决策始末**
+
+1. **门禁发现一处不达标并当场修掉**：`db.ts` 原先用模块级 `let dbPromise` 缓存连接，违反「不写模块级可变全局」。改为 `createChatDB()` 工厂，连接 Promise 收在闭包里，句柄挂在 `runtime.db`；session store 与 db/session 测试同步改成句柄调用。这是本步唯一的行为无关重构。
+2. **模块级扫描保留 1 处常量**：`attachments.ts` 的 `LAYOUT_RECOGNITION_EXTS` 是 `new Set(...)` 但只读、从不修改，视为不可变常量，不算可变状态；扫描脚本对 `let` / 可变 Map/Set 的判定写进结论。
+3. **旧数据只做静态确认**：`src` 里 `chat-demo` 只出现在 `appNamespace.ts` 的命名空间常量与两处注释，没有任何读写旧库/旧键的代码；真实旧库未触碰（旧应用仍可打开）。
+4. **Bundle 检查用字符串扫描**：`dist/static/*.js` 不含 `react-dom`/`zustand`/`fflate`/`rspack`；Mermaid/Prism/KaTeX 尚未引入（Phase 4 才接，保持按需加载）。
+5. **冒烟范围与 P1 相同**：Phase 2 没有新 UI，只验证外壳、Provider、控制台与版本注入；聊天流程留给 Phase 3。
+
+**验证记录**
+
+- `pnpm type` / `lint` / `format:check` / `test` / `build` / `docs:fields`：**全部 exit 0**。
+- `pnpm test`：**126 个用例 / 21 个文件**，覆盖 §7 列出的 `branches` / `reply` / `view` / `describe` / `errors` / `sessionGroups` / `latestReminder` / `attachments` / `db`，另含 `sse` / `parseEvent` / `client` / `stream` / `uploads` / `drafts` / `interrupted`。
+- `pnpm build`：2713 modules，入口 425.88 kB（gzip 135.76 kB）。
+- 静态检查：`chat-demo` 仅 2 处注释 + 1 处常量；`*.js` bundle 无禁用栈；`src` 无 `any`；模块级可变状态 0（仅 1 个只读 Set 常量）。
+- 浏览器（dev 8097）：`lang=zh-CN`、侧栏 240、欢迎语、`application-version=0.1.0`、控制台 0 报错；验证后停服并确认端口释放。
+
+**遗留**
+
+- Mermaid/Prism/KaTeX 在 Phase 4 接入，届时复核按需加载与 bundle 体积。
+- `retryUpload`（`file_id` 失效重传）仍留待 Phase 3 真实场景。
+- `P2-99` 通过，进入 Phase 3（聊天主链路）。
+
+---
+

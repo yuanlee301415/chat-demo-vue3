@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
-import { deleteSession as dbDeleteSession, loadSession, loadSessionSummaries, renameSession as dbRenameSession, reportStorageError, saveSession } from '../services/chat/db'
+import { reportStorageError } from '../services/chat/db'
 import { settleInterrupted } from '../services/chat/interrupted'
 import { toSessionSummary, type Session, type SessionSummary } from '../services/chat/types'
 import { useRuntimeStore } from './runtime'
@@ -28,6 +28,7 @@ const omitKey = <T>(record: Record<string, T>, key: string): Record<string, T> =
  */
 export const useSessionStore = defineStore('session', () => {
   const { runtime } = useRuntimeStore()
+  const db = runtime.db
 
   const ready = shallowRef(false)
   const initError = shallowRef(false)
@@ -74,7 +75,8 @@ export const useSessionStore = defineStore('session', () => {
       return
     }
     const files = runtime.pendingFiles.get(id)
-    void saveSession(session, files ?? [])
+    void db
+      .saveSession(session, files ?? [])
       .then(() => {
         if (sessionCache.value[id] !== session) {
           return
@@ -104,7 +106,7 @@ export const useSessionStore = defineStore('session', () => {
     }
     runtime.initTask = (async () => {
       try {
-        sessions.value = sortSessions(await loadSessionSummaries())
+        sessions.value = sortSessions(await db.loadSessionSummaries())
         initError.value = false
         ready.value = true
       } catch (error) {
@@ -131,7 +133,7 @@ export const useSessionStore = defineStore('session', () => {
     runtime.sessionLoads.set(id, load)
     load.promise = (async () => {
       try {
-        const stored = await loadSession(id)
+        const stored = await db.loadSession(id)
         if (runtime.sessionLoads.get(id) !== load) {
           return
         }
@@ -200,7 +202,7 @@ export const useSessionStore = defineStore('session', () => {
       return
     }
     sessions.value = sessions.value.map((summary) => (summary.id === id ? { ...summary, title } : summary))
-    void dbRenameSession(id, title).catch(reportStorageError('rename session'))
+    void db.renameSession(id, title).catch(reportStorageError('rename session'))
   }
 
   /**
@@ -217,7 +219,7 @@ export const useSessionStore = defineStore('session', () => {
       const handle = runtime.streaming.get(id)
       handle?.controller.abort()
       await handle?.done
-      await dbDeleteSession(id)
+      await db.deleteSession(id)
       runtime.sessionLoads.delete(id)
       runtime.sessionAccess.delete(id)
       runtime.unsavedSessions.delete(id)

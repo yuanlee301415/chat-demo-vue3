@@ -53,8 +53,6 @@ interface ChatDB extends DBSchema {
   files: { key: string; value: StoredFile }
 }
 
-let dbPromise: Promise<IDBPDatabase<ChatDB>> | null = null
-
 /** 从会话详情生成摘要（含附件引用）。 */
 const storedSummary = (session: Session): StoredSessionSummary => ({
   ...toSessionSummary(session),
@@ -70,116 +68,137 @@ const abortTransaction = (tx: { abort(): void }) => {
   }
 }
 
-// 每个操作拿到连接后立即创建事务；IndexedDB 按创建顺序执行范围重叠的事务，读取总能看到之前发起的写入。
-/** 懒加载数据库连接；打开失败后清空缓存以便重试。 */
-const getDB = () =>
-  (dbPromise ??= openDB<ChatDB>(DB_NAME, DB_VERSION, {
-    upgrade(db, _oldVersion, _newVersion, tx) {
-      for (const name of ['sessions', 'files'] as const) {
-        if (!db.objectStoreNames.contains(name)) {
-          db.createObjectStore(name, { keyPath: 'id' })
-        }
-      }
-      const summaries = db.objectStoreNames.contains('sessionSummaries') ? tx.objectStore('sessionSummaries') : db.createObjectStore('sessionSummaries', { keyPath: 'id' })
-      if (!summaries.indexNames.contains('fileIds')) {
-        summaries.createIndex('fileIds', 'fileIds', { multiEntry: true })
-      }
-    },
-  }).catch((error: unknown) => {
-    // 打开失败后允许界面重试，避免一直复用已拒绝的 Promise。
-    dbPromise = null
-    throw error
-  }))
-
-/** 读取全部会话摘要（未排序）。 */
-export const loadSessionSummaries = async (): Promise<SessionSummary[]> => (await (await getDB()).getAll('sessionSummaries')).map(toSessionSummary)
-
-/** 按 id 读取会话详情。 */
-export const loadSession = async (id: string): Promise<Session | undefined> => (await getDB()).get('sessions', id)
-
-/** 原子写入会话、摘要与附件原件。 */
-export const saveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
-  const summary = storedSummary(session)
-  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
-  await Promise.all([
-    (async () => {
-      try {
-        for (const file of files) {
-          await tx.objectStore('files').put(file)
-        }
-        await tx.objectStore('sessions').put(session)
-        await tx.objectStore('sessionSummaries').put(summary)
-      } catch (error) {
-        abortTransaction(tx)
-        throw error
-      }
-    })(),
-    tx.done,
-  ])
+/** 本地库的操作面；每个 Pinia 实例一份，连接缓存在闭包里，不写模块级可变全局。 */
+export interface ChatDBHandle {
+  /** 读取全部会话摘要（未排序）。 */
+  loadSessionSummaries(): Promise<SessionSummary[]>
+  /** 按 id 读取会话详情。 */
+  loadSession(id: string): Promise<Session | undefined>
+  /** 原子写入会话、摘要与附件原件。 */
+  saveSession(session: Session, files?: StoredFile[]): Promise<void>
+  /** 未打开的会话也可重命名：只读该会话，原子更新详情与列表。 */
+  renameSession(id: string, title: string): Promise<void>
+  /** 删除会话，仅清理已无会话引用的本地原件。 */
+  deleteSession(sessionId: string): Promise<void>
+  /** 清空全部本地会话、摘要与原件。 */
+  clearAllSessions(): Promise<void>
+  /** 批量写入附件原件。 */
+  saveFiles(files: StoredFile[]): Promise<void>
+  /** 按附件 id 读取原件。 */
+  loadFile(id: string): Promise<Blob | undefined>
 }
 
-/** 未打开的会话也可重命名，只读取该会话，原子更新详情和列表。 */
-export const renameSession = async (id: string, title: string): Promise<void> => {
-  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
-  await Promise.all([
-    (async () => {
-      try {
-        const sessions = tx.objectStore('sessions')
-        const session = await sessions.get(id)
-        if (session) {
-          session.title = title
-          await sessions.put(session)
-          await tx.objectStore('sessionSummaries').put(storedSummary(session))
-        }
-      } catch (error) {
-        abortTransaction(tx)
-        throw error
-      }
-    })(),
-    tx.done,
-  ])
-}
+/**
+ * 创建本地库句柄：连接 Promise 缓存在闭包里，打开失败时清空以便重试。
+ * 每个操作拿到连接后立即开事务；IndexedDB 按创建顺序执行范围重叠的事务，读取总能看到之前的写入。
+ */
+export const createChatDB = (): ChatDBHandle => {
+  let promise: Promise<IDBPDatabase<ChatDB>> | null = null
 
-/** 删除会话，仅清理已无会话引用的本地原件；远端文件不删。 */
-export const deleteSession = async (sessionId: string): Promise<void> => {
-  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
-  await Promise.all([
-    (async () => {
-      try {
-        const summaries = tx.objectStore('sessionSummaries')
-        const summary = await summaries.get(sessionId)
-        await tx.objectStore('sessions').delete(sessionId)
-        await summaries.delete(sessionId)
-        for (const id of summary?.fileIds ?? []) {
-          if ((await summaries.index('fileIds').count(id)) === 0) {
-            await tx.objectStore('files').delete(id)
+  /** 懒加载数据库连接；打开失败后清空缓存以便重试。 */
+  const getDB = (): Promise<IDBPDatabase<ChatDB>> =>
+    (promise ??= openDB<ChatDB>(DB_NAME, DB_VERSION, {
+      upgrade(db, _oldVersion, _newVersion, tx) {
+        for (const name of ['sessions', 'files'] as const) {
+          if (!db.objectStoreNames.contains(name)) {
+            db.createObjectStore(name, { keyPath: 'id' })
           }
         }
-      } catch (error) {
-        abortTransaction(tx)
-        throw error
-      }
-    })(),
-    tx.done,
-  ])
+        const summaries = db.objectStoreNames.contains('sessionSummaries') ? tx.objectStore('sessionSummaries') : db.createObjectStore('sessionSummaries', { keyPath: 'id' })
+        if (!summaries.indexNames.contains('fileIds')) {
+          summaries.createIndex('fileIds', 'fileIds', { multiEntry: true })
+        }
+      },
+    }).catch((error: unknown) => {
+      // 打开失败后允许界面重试，避免一直复用已拒绝的 Promise。
+      promise = null
+      throw error
+    }))
+
+  return {
+    loadSessionSummaries: async () => (await (await getDB()).getAll('sessionSummaries')).map(toSessionSummary),
+
+    loadSession: async (id) => (await getDB()).get('sessions', id),
+
+    saveSession: async (session, files = []) => {
+      const summary = storedSummary(session)
+      const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
+      await Promise.all([
+        (async () => {
+          try {
+            for (const file of files) {
+              await tx.objectStore('files').put(file)
+            }
+            await tx.objectStore('sessions').put(session)
+            await tx.objectStore('sessionSummaries').put(summary)
+          } catch (error) {
+            abortTransaction(tx)
+            throw error
+          }
+        })(),
+        tx.done,
+      ])
+    },
+
+    renameSession: async (id, title) => {
+      const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
+      await Promise.all([
+        (async () => {
+          try {
+            const sessions = tx.objectStore('sessions')
+            const session = await sessions.get(id)
+            if (session) {
+              session.title = title
+              await sessions.put(session)
+              await tx.objectStore('sessionSummaries').put(storedSummary(session))
+            }
+          } catch (error) {
+            abortTransaction(tx)
+            throw error
+          }
+        })(),
+        tx.done,
+      ])
+    },
+
+    deleteSession: async (sessionId) => {
+      const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
+      await Promise.all([
+        (async () => {
+          try {
+            const summaries = tx.objectStore('sessionSummaries')
+            const summary = await summaries.get(sessionId)
+            await tx.objectStore('sessions').delete(sessionId)
+            await summaries.delete(sessionId)
+            for (const id of summary?.fileIds ?? []) {
+              if ((await summaries.index('fileIds').count(id)) === 0) {
+                await tx.objectStore('files').delete(id)
+              }
+            }
+          } catch (error) {
+            abortTransaction(tx)
+            throw error
+          }
+        })(),
+        tx.done,
+      ])
+    },
+
+    clearAllSessions: async () => {
+      const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
+      await Promise.all([tx.objectStore('sessions').clear(), tx.objectStore('sessionSummaries').clear(), tx.objectStore('files').clear(), tx.done])
+    },
+
+    saveFiles: async (files) => {
+      const tx = (await getDB()).transaction('files', 'readwrite')
+      await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])
+    },
+
+    loadFile: async (id) => (await (await getDB()).get('files', id))?.blob,
+  }
 }
 
-/** 清空全部本地会话、摘要与原件；「删除全部会话」用它一次性完成。 */
-export const clearAllSessions = async (): Promise<void> => {
-  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
-  await Promise.all([tx.objectStore('sessions').clear(), tx.objectStore('sessionSummaries').clear(), tx.objectStore('files').clear(), tx.done])
-}
-
-/** 批量写入附件原件。 */
-export const saveFiles = async (files: StoredFile[]): Promise<void> => {
-  const tx = (await getDB()).transaction('files', 'readwrite')
-  await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])
-}
-
-/** 按附件 id 读取原件。 */
-export const loadFile = async (id: string): Promise<Blob | undefined> => (await (await getDB()).get('files', id))?.blob
-
-/** 本地存储失败不打断对话，只在控制台留痕 */
+/** 本地存储失败不打断对话，只在控制台留痕。 */
 export const reportStorageError =
   (action: string) =>
   (error: unknown): void => {

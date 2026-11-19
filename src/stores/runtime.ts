@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 
-import type { StoredFile } from '../services/chat/db'
+import { createChatDB, type ChatDBHandle, type StoredFile } from '../services/chat/db'
 
 /** 一次流式生成的句柄：中止用 controller，收尾（含落盘）用 done。 */
 export interface StreamHandle {
@@ -34,6 +34,8 @@ export interface ChatRuntime {
   titleRequests: Set<AbortController>
   /** 会话详情的并发加载去重 */
   sessionLoads: Map<string, { promise: Promise<void> }>
+  /** 本地库句柄；连接缓存在句柄闭包里，不写模块级可变全局 */
+  db: ChatDBHandle
   /** 初始化任务，只跑一次 */
   initTask?: Promise<void>
 }
@@ -49,6 +51,7 @@ export const createChatRuntime = (): ChatRuntime => ({
   streamFlushes: new Map(),
   titleRequests: new Set(),
   sessionLoads: new Map(),
+  db: createChatDB(),
   initTask: undefined,
 })
 
