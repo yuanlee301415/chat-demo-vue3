@@ -3,6 +3,7 @@ import { classifyStatus } from '../api/errors'
 import type { AssistantMessage } from './types'
 
 export type Notice = {
+  /** 展示文案（已本地化） */
   text: string
   /** 模板答复使用正文样式；其余统一为红色错误提示。 */
   presentation?: 'response'
@@ -10,6 +11,7 @@ export type Notice = {
   action?: 'apiKey' | 'topUp'
 }
 
+/** 拼出模板答复的正文（仅 isTemplate 文本块）。 */
 const getTemplateText = (reply: AssistantMessage) => reply.blocks.map((block) => (block.type === 'text' && block.isTemplate ? block.text : '')).join('')
 
 /** 回复出错或未正常结束时展示的提示 */

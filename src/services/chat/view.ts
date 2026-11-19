@@ -8,7 +8,9 @@ import type { AssistantMessage, ThinkingPart } from './types'
  */
 
 export type Source = {
+  /** 页面地址 */
   url: string
+  /** 页面标题；缺失时用地址 */
   title: string
   /** 优先使用服务端站点名，没有时使用域名（去掉 www.） */
   siteName: string
@@ -16,6 +18,7 @@ export type Source = {
   publishedAt: string | null
   /** 明文摘要与站点图标；缺少元数据时为 null */
   snippet: string | null
+  /** 站点图标地址 */
   siteIcon: string | null
   /** 引用角标与搜索结果列表上的编号，从 1 开始 */
   index: number
@@ -23,44 +26,82 @@ export type Source = {
 
 export type ToolStatus = 'wip' | 'done' | 'failed'
 
+/** 是否为边想边搜（含图搜）。 */
 export const isDeepSearchKind = (kind: ServerToolKind) => kind === 'deep_search' || kind === 'deep_image_search'
 
+/** 是否为图片搜索（含深度图搜）。 */
 export const isImageSearchKind = (kind: ServerToolKind) => kind === 'image_search' || kind === 'deep_image_search'
 
 export type SearchStep = {
+  /** 步骤类型 */
   type: 'search'
   /** 该步骤首次调用的 ID，空查询的图搜也有稳定标识 */
   key: string
+  /** 搜索能力细分 */
   kind: ServerToolKind
+  /** 本轮搜索词（合并后） */
   queries: string[]
+  /** 命中的网页 */
   results: Source[]
+  /** 进行中 / 完成 / 失败 */
   status: ToolStatus
 }
 
 export type PageItem = {
+  /** 对应的 server_tool_use id */
   id: string
+  /** 页面地址 */
   url: string
+  /** 页面标题 */
   title: string
+  /** 步骤状态 */
   status: ToolStatus
 }
 
-export type OpenStep = { type: 'open'; pages: PageItem[] }
+export type OpenStep = {
+  /** 步骤类型 */
+  type: 'open'
+  /** 本轮打开过的网页，按到达顺序合并 */
+  pages: PageItem[]
+}
 
 export type FindStep = {
+  /** 步骤类型 */
   type: 'find'
+  /** 页内查找的模式与状态 */
   patterns: { id: string; pattern: string; status: ToolStatus }[]
 }
 
-export type ReadLinkStep = { type: 'read_link'; links: PageItem[] }
+export type ReadLinkStep = {
+  /** 步骤类型 */
+  type: 'read_link'
+  /** 正在阅读的链接；结束后该步骤不再展示 */
+  links: PageItem[]
+}
 
-export type ThinkingStep = { type: 'thinking'; key: string; blocks: ThinkingPart[] }
+export type ThinkingStep = {
+  /** 步骤类型 */
+  type: 'thinking'
+  /** 合并后的思考步骤标识，取首块下标 */
+  key: string
+  /** 相邻的思考块合并到这里 */
+  blocks: ThinkingPart[]
+}
 
 /** 工具调用前输出的说明文字 */
-export type PreambleStep = { type: 'text'; key: string; markdown: string }
+export type PreambleStep = {
+  /** 步骤类型 */
+  type: 'text'
+  /** 说明文字的步骤标识，取首块下标 */
+  key: string
+  /** 说明文字的 markdown（已处理引用角标） */
+  markdown: string
+}
 
 export type Step = SearchStep | OpenStep | FindStep | ReadLinkStep | ThinkingStep | PreambleStep
 
 export type ReplyView = {
+  /** 思考与工具步骤，按出现顺序 */
   steps: Step[]
   /** 最后一个思考或工具块之后的正文；markdown 里在引用处插入了 [citation:N] */
   answer: { markdown: string; text: string } | null
@@ -70,6 +111,7 @@ export type ReplyView = {
   searchResults: Source[]
 }
 
+/** 从 URL 取展示用站点名（去掉 www.）。 */
 export const getSiteName = (url: string) => {
   try {
     return new URL(url).hostname.replace(/^www\./, '')
@@ -78,6 +120,7 @@ export const getSiteName = (url: string) => {
   }
 }
 
+/** 由工具结果推导步骤状态。 */
 const getStatus = (result: WebSearchToolResultBlock | WebFetchToolResultBlock | undefined, streaming: boolean): ToolStatus => {
   if (!result) {
     return streaming ? 'wip' : 'failed'
@@ -88,6 +131,7 @@ const getStatus = (result: WebSearchToolResultBlock | WebFetchToolResultBlock | 
   return result.content.type === 'web_fetch_result' ? 'done' : 'failed'
 }
 
+/** 合并多个状态：有进行中取进行中，全失败取失败。 */
 const mergeStatus = (statuses: ToolStatus[]): ToolStatus => (statuses.includes('wip') ? 'wip' : statuses.every((s) => s === 'failed') ? 'failed' : 'done')
 
 /** 来源登记：同一 URL 只编号一次，编号按首次出现的顺序 */
@@ -95,6 +139,7 @@ class SourceRegistry {
   readonly list: Source[] = []
   private byUrl = new Map<string, Source>()
 
+  /** 登记来源：同一 URL 只编号一次，后续结果补齐元数据。 */
   add(url: string, title: string | null, publishedAt: string | null, metadata?: Pick<WebSearchResult, 'snippet' | 'site_icon' | 'site_name'>): Source {
     const siteName = metadata?.site_name?.trim() || getSiteName(url)
     const snippet = metadata?.snippet?.trim() || null
@@ -151,6 +196,7 @@ const joinTextBlocks = (blocks: { text: string; citations?: TextCitation[] }[], 
   return { markdown, text }
 }
 
+/** 把回复内容块推导成时间线、正文与来源列表。 */
 export const buildReplyView = (reply: AssistantMessage, streaming: boolean): ReplyView => {
   const results = new Map<string, WebSearchToolResultBlock | WebFetchToolResultBlock>()
   for (const block of reply.blocks) {
@@ -186,6 +232,7 @@ export const buildReplyView = (reply: AssistantMessage, streaming: boolean): Rep
     }
   }
 
+  /** 把累积的正文块收成一个「前置说明」步骤。 */
   const flushPreamble = () => {
     if (pendingText.length === 0) {
       return

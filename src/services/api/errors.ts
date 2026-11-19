@@ -26,6 +26,7 @@ export const classifyStatus = (status: number | undefined): ApiErrorCondition =>
   return 'other'
 }
 
+/** 把任意异常归类成 ApiErrorCondition；非 ApiError 一律 other。 */
 export const classifyApiError = (error: unknown): ApiErrorCondition => {
   if (!(error instanceof ApiError)) {
     return 'other'
@@ -69,7 +70,12 @@ export const extractFileIds = (message: string): string[] => [...new Set(message
 /** 上传失败里能识别出具体原因的情况；其余统一按「上传失败」处理 */
 export type UploadErrorCode = 'fileCountLimit' | 'storageLimit' | 'parseFailed'
 
-export type UploadErrorInfo = { code: UploadErrorCode; limit?: string }
+export type UploadErrorInfo = {
+  /** 可识别的上传失败原因 */
+  code: UploadErrorCode
+  /** 配额类错误的上限值（文件数或 GB），由服务端文案解析 */
+  limit?: string
+}
 
 /** 服务端无法解析文件内容：图片损坏或尺寸过大、格式不受支持、加密、文档解析失败 */
 const PARSE_FAILED_PATTERNS = [/You have uploaded an (unsupported|invalid) (file|image)/i, /The image is too large to process/i, /password-protected/i, /Failed to recognize the file/i]

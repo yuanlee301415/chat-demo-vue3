@@ -743,3 +743,43 @@
 - jsdoc 规则仍是 `warn`；`DOC-05` 收紧为 `error` 并给 `lint` 加 `--max-warnings=0`。
 - 字段检查器是启发式，已知漏检边界写在脚本头注释里。
 - `@see` 锚点表已在 `AGENTS.md` §7 落地，但具体标注要到 `DOC-02`/`DOC-03` 才写进源码。
+
+---
+
+## DOC-02 服务层注释（api + chat）
+
+- 状态：已提交（`git log --grep DOC-02`）
+- 开始：2026-11-19 11:11
+
+**计划与目标**
+
+- 目标：把 `src/services/api/*` 与 `src/services/chat/*` 的函数 JSDoc、类型字段注释与 `@see` 标注补齐，让这两层的 lint 警告与 `docs:fields` 缺口归零。
+- 范围：`api/types.ts`、`api/ApiError.ts`、`api/errors.ts`、`chat/types.ts`、`chat/db.ts`、`chat/branches.ts`、`chat/view.ts`、`chat/describe.ts`。
+- 不做：不碰 `stores/*`、`components/*`、`app/*` 与配置文件（`DOC-03`/`DOC-04`）；不改逻辑；不展开将来会被删除的类型。
+- 验收：
+  1. 上述文件的 `docs:fields` 缺口为 0；这些文件不再有 `jsdoc/require-jsdoc` 警告。
+  2. 单行对象类型（`TextBlock`/`ThinkingBlock`/`ToolUseBlock`/`TextBlockParam`/`StopDetails`/`UploadErrorInfo`/`MessageVersions`/`StoredSessionSummary`）展开为多行并逐字段注释。
+  3. `@see` 标注到位：`ApiErrorKind`、`Session`/`Message`/`FileAttachment`、`APP_NAMESPACE`、CHANGELOGS 步骤引用。
+  4. `type|lint|format:check|test|build` 全绿。
+
+**关键决策始末**
+
+1. **8 个单行对象类型展开为多行**（`TextBlock`/`ThinkingBlock`/`ToolUseBlock`/`TextBlockParam`/`StopDetails`/`UploadErrorInfo`/`MessageVersions`/`StoredSessionSummary`）：逐字段注释要求字段独占一行，展开后补了 20 条字段注释。
+2. **其余注释用一次性脚本按「行号 + 期望内容」插入**：脚本对每行做 `expect` 校验、不匹配即中止，避免手改长文件引入偏差；运行后删除，不进仓库。
+3. **`@see` 只加在真正的来源处**：`ApiError` → `ApiErrorKind`/`errors.ts`；`DB_NAME` → `APP_NAMESPACE`/`CHANGELOGS.md（P2-01）`；`StoredFile` → `FileAttachment.id`；`ChatDB` → `Session`/`StoredFile`。其余靠参数/返回类型约束，不重复标注。
+4. **注释写契约而非实现**：单位、取值范围、来源、生命周期；例如 `page_age` 只写「RFC 3339」，不描述解析过程。
+5. **测试 helper 的 11 条警告不提前处理**：属于 `DOC-05`，保持本步范围干净。
+
+**验证记录**
+
+- `pnpm docs:fields`：120 → **4**（剩余全在 `DOC-03` 范围：`components.d.ts` 1 条 + `i18n/index.ts` 3 条）。
+- `pnpm lint`：56 → **38 warning**、0 error；`src/services` 的非测试文件 **0 警告**，剩余 11 条都在测试 helper。
+- `pnpm type` / `format:check` / `test`（60 例）/ `build` 全部通过；构建哈希 `index-B33EnnZl.js` 不变。
+- 改动量：9 个文件 +245/−14（含展开的字段注释与 `@see`）。
+
+**遗留**
+
+- `components.d.ts` 与 `i18n/index.ts` 的字段在 `DOC-03`。
+- 测试 helper 注释与 jsdoc 规则收紧在 `DOC-05`。
+- jsdoc 规则仍是 `warn`。
+- 字段检查器对联合类型里的内联对象仍可能漏检（已知边界，靠 review 兜底）。

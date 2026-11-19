@@ -4,6 +4,9 @@ import type { ApiErrorKind } from './types'
 /**
  * 接口错误：`kind` 区分失败阶段，`status` 是 HTTP 状态码；
  * 传 `TranslationMessage` 时按当前（固定中文）文案渲染，并保留原文供历史数据回退。
+ *
+ * @see ApiErrorKind 失败阶段的唯一来源
+ * @see errors.ts 按状态码与 `kind` 归类
  */
 export class ApiError extends Error {
   readonly localMessage?: TranslationMessage

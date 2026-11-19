@@ -34,7 +34,12 @@ export const getVisibleMessages = (session: Session): Message[] => {
   return path
 }
 
-export type MessageVersions = { ids: string[]; index: number }
+export type MessageVersions = {
+  /** 同一父节点下的兄弟消息 id，按创建顺序 */
+  ids: string[]
+  /** 当前消息在 ids 里的下标 */
+  index: number
+}
 
 /** 一次遍历收集兄弟版本；版本列表未变化时复用旧对象与索引，避免流式正文更新重绘历史消息。 */
 export const buildMessageVersions = (session: Session, previous: ReadonlyMap<string, MessageVersions>): ReadonlyMap<string, MessageVersions> => {
