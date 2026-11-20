@@ -1,7 +1,7 @@
 {
-  "name": "chat-demo-vue",
+  "name": "chat-demo-vue3",
   "version": "0.1.0",
-  "description": "DeepSeek chat-demo@0.1.1 Vue3 重构版本",
+  "description": "DeepSeek chat-demo@0.1.1 DSH Vue3 重构版本",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.5.1",

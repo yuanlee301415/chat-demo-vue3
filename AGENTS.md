@@ -6,6 +6,7 @@
 ## 1. 项目速览
 
 - 把 `deepseek-ai/chat-demo`（React + Rspack）重构为 **Vue 3 + TypeScript + Vite + NaiveUI + Pinia**，只保留桌面端。
+- `deepseek-ai/chat-demo` 参考项目，本地目录：`E:\Harness\chat-demo`
 - 入口 `src/main.ts` → 外壳 `src/app/App.vue`；状态在 `src/stores/*`；纯逻辑在 `src/services/*`；文案在 `src/i18n/zh.ts`；图标在 `src/assets/icons/*.svg`。
 
 ## 2. 每次动手前

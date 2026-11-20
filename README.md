@@ -1,6 +1,7 @@
 # chat-demo-vue
 
-[DeepSeek chat-demo](https://github.com/deepseek-ai/chat-demo) 的 **Vue 3 + TypeScript** 重构版：桌面端本地聊天示例，浏览器直连 DeepSeek API，会话与附件全部保存在本机。
+- [DeepSeek chat-demo](https://github.com/deepseek-ai/chat-demo) 的 **Vue 3 + TypeScript** 重构版：桌面端本地聊天示例，浏览器直连 DeepSeek API，会话与附件全部保存在本机。
+- `chat-demo` 参考项目，本地目录：`E:\Harness\chat-demo`
 
 > 这是社区重构版本，用于学习和本地试用，不是 DeepSeek 官方产品。
 
