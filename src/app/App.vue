@@ -2,16 +2,16 @@
 import { NButton, NConfigProvider, NDialogProvider, NLayout, NLayoutContent, NLayoutSider, NMessageProvider, NSpin, darkTheme, dateZhCN, zhCN } from 'naive-ui'
 import { computed, onMounted, watch, watchEffect } from 'vue'
 
-import SessionView from '../components/session/SessionView.vue'
-import WelcomeView from '../components/session/WelcomeView.vue'
-import AppSider from '../components/sider/AppSider.vue'
-import CollapsedSider from '../components/sider/CollapsedSider.vue'
-import SearchPanel from '../components/search/SearchPanel.vue'
-import SettingsDialog from '../components/settings/SettingsDialog.vue'
-import { useI18n } from '../i18n'
-import { useSessionStore } from '../stores/session'
-import { useSettingsStore } from '../stores/settings'
-import { useUiStore } from '../stores/ui'
+import SessionView from '@/components/session/SessionView.vue'
+import WelcomeView from '@/components/session/WelcomeView.vue'
+import AppSider from '@/components/sider/AppSider.vue'
+import CollapsedSider from '@/components/sider/CollapsedSider.vue'
+import SearchPanel from '@/components/search/SearchPanel.vue'
+import SettingsDialog from '@/components/settings/SettingsDialog.vue'
+import { useI18n } from '@/i18n'
+import { useSessionStore } from '@/stores/session'
+import { useSettingsStore } from '@/stores/settings'
+import { useUiStore } from '@/stores/ui'
 import { themeOverrides } from './theme'
 import { useThemeMode } from './useThemeMode'
 
@@ -114,8 +114,9 @@ onMounted(() => {
 }
 
 .workspace {
+  height: 100%;
+  overflow: hidden;
   display: flex;
-  flex: 1;
   min-height: 0;
 }
 
