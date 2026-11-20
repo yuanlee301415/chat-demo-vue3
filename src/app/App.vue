@@ -62,7 +62,7 @@ onMounted(() => {
     <NMessageProvider>
       <NDialogProvider>
         <NLayout class="shell" has-sider>
-          <NLayoutSider :collapsed="collapsed" :width="240" :collapsed-width="64" collapse-mode="width" :native-scrollbar="false" :show-trigger="false" bordered>
+          <NLayoutSider :collapsed="collapsed" :width="240" :collapsed-width="64" collapse-mode="width" :show-trigger="false" bordered>
             <AppSider v-if="!collapsed" />
             <CollapsedSider v-else />
           </NLayoutSider>

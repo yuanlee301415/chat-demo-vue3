@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { NButton, NEmpty, NTooltip, useDialog, useMessage } from 'naive-ui'
+import { NButton, NEmpty, NTooltip, NScrollbar, useDialog, useMessage } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { useThemeMode } from '../../app/useThemeMode'
-import { useI18n } from '../../i18n'
-import { groupSessions } from '../../services/chat/sessionGroups'
-import { useSessionStore } from '../../stores/session'
-import { useSettingsStore } from '../../stores/settings'
-import { useUiStore } from '../../stores/ui'
+import { useThemeMode } from '@/app/useThemeMode'
+import { useI18n } from '@/i18n'
+import { groupSessions } from '@/services/chat/sessionGroups'
+import { useSessionStore } from '@/stores/session'
+import { useSettingsStore } from '@/stores/settings'
+import { useUiStore } from '@/stores/ui'
 import SessionItem from './SessionItem.vue'
 
 const { t } = useI18n()
@@ -100,10 +100,12 @@ const confirmDelete = (id: string) => {
 
     <div class="sider__list">
       <NEmpty v-if="store.sessions.length === 0" :description="t('untitledChat')" size="small" />
-      <section v-for="group in groups" :key="group.key" class="sider__group">
-        <h2 class="sider__group-title">{{ group.label }}</h2>
-        <SessionItem v-for="session in group.sessions" :key="session.id" :session="session" :active="session.id === store.activeId" @delete="confirmDelete" />
-      </section>
+      <n-scrollbar v-else>
+        <section v-for="group in groups" :key="group.key" class="sider__group">
+          <h2 class="sider__group-title">{{ group.label }}</h2>
+          <SessionItem v-for="session in group.sessions" :key="session.id" :session="session" :active="session.id === store.activeId" @delete="confirmDelete" />
+        </section>
+      </n-scrollbar>
     </div>
 
     <footer class="sider__footer">
@@ -161,7 +163,7 @@ const confirmDelete = (id: string) => {
 .sider__list {
   flex: 1;
   padding: 0 8px 12px;
-  overflow: auto;
+  overflow-y: auto;
 }
 
 .sider__group-title {
